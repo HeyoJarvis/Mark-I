@@ -35,7 +35,7 @@ class AnthropicEngine(BaseAIEngine):
             
         # Default models for Anthropic
         if not config.model:
-            config.model = "claude-3-sonnet-20240229"
+            config.model = "claude-3-5-sonnet-20241022"
     
     def get_engine_type(self) -> str:
         """Return the engine type identifier"""
@@ -234,6 +234,7 @@ class AnthropicEngine(BaseAIEngine):
         limits = {
             "claude-3-opus-20240229": {"max_tokens": 4096, "context_window": 200000},
             "claude-3-sonnet-20240229": {"max_tokens": 4096, "context_window": 200000},
+            "claude-3-5-sonnet-20241022": {"max_tokens": 8192, "context_window": 200000},
             "claude-3-haiku-20240307": {"max_tokens": 4096, "context_window": 200000},
             "claude-2.1": {"max_tokens": 4096, "context_window": 200000},
             "claude-2.0": {"max_tokens": 4096, "context_window": 100000},

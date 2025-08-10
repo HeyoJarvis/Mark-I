@@ -17,6 +17,8 @@ from rich.table import Table
 
 from orchestration.orchestrator import HeyJarvisOrchestrator, OrchestratorConfig
 from orchestration.jarvis import Jarvis, JarvisConfig
+from orchestration.branding_orchestration import BrandingOrchestrator, OrchestrationConfig
+from orchestration.universal_orchestrator import UniversalOrchestrator, UniversalOrchestratorConfig
 from conversation.websocket_handler import websocket_handler, OperatingMode
 
 # Load environment variables from .env file
@@ -31,6 +33,81 @@ logger = logging.getLogger(__name__)
 
 # Rich console for better UI
 console = Console()
+
+
+async def branding_mode():
+    """Branding agent orchestration mode."""
+    # Initialize branding orchestrator
+    config = OrchestrationConfig(
+        redis_url=os.getenv("REDIS_URL", "redis://localhost:6379"),
+        max_concurrent_invocations=int(os.getenv("MAX_CONCURRENT_INVOCATIONS", "5")),
+        response_cache_ttl_hours=int(os.getenv("RESPONSE_CACHE_TTL_HOURS", "1")),
+        enable_logging=os.getenv("ENABLE_LOGGING", "true").lower() == "true",
+        enable_metrics=os.getenv("ENABLE_METRICS", "true").lower() == "true",
+        anthropic_api_key=os.getenv("ANTHROPIC_API_KEY")
+    )
+    
+    orchestrator = BrandingOrchestrator(config)
+    success = await orchestrator.initialize()
+    
+    if not success:
+        console.print("[red]Error: Failed to initialize branding orchestrator.[/red]")
+        return
+    
+    console.print("[bold magenta]🎨 Branding Agent Mode Active[/bold magenta]")
+    console.print("[dim]AI-powered brand creation and visual identity generation[/dim]\n")
+    
+    try:
+        session_id = str(uuid.uuid4())[:8]
+        console.print(f"[dim]Session ID: {session_id}[/dim]\n")
+        
+        # Show branding commands
+        console.print("[dim]💡 Commands: 'health', 'metrics', 'demo', or describe your business idea[/dim]\n")
+        
+        while True:
+            try:
+                user_input = console.input("[bold magenta]You:[/bold magenta] ").strip()
+                
+                if not user_input:
+                    continue
+                    
+                # Handle commands
+                if user_input.lower() in ['exit', 'quit']:
+                    console.print("[yellow]Goodbye! Your branding session has been saved.[/yellow]")
+                    break
+                elif user_input.lower() == 'health':
+                    health = await orchestrator.health_check()
+                    console.print(f"[green]Health Status: {health.get('status')}[/green]")
+                    console.print(f"[green]Components: {list(health.get('components', {}).keys())}[/green]")
+                    continue
+                elif user_input.lower() == 'metrics':
+                    metrics = await orchestrator.get_metrics()
+                    console.print(f"[blue]Total Requests: {metrics.total_requests}[/blue]")
+                    console.print(f"[blue]Successful: {metrics.successful_requests}[/blue]")
+                    console.print(f"[blue]Failed: {metrics.failed_requests}[/blue]")
+                    console.print(f"[blue]Avg Response Time: {metrics.average_response_time_ms:.2f}ms[/blue]")
+                    continue
+                elif user_input.lower() == 'demo':
+                    await branding_demo_mode(orchestrator, session_id)
+                    continue
+                
+                # Process branding request
+                console.print(f"\n[bold magenta]🎨 Branding Agent:[/bold magenta] Processing your brand creation request...\n")
+                
+                result = await orchestrator.process_request(user_input, session_id)
+                
+                # Display branding results
+                await display_branding_result(result)
+                
+            except KeyboardInterrupt:
+                console.print("\n[yellow]Session interrupted. Type 'continue' to resume later.[/yellow]")
+                break
+            except Exception as e:
+                console.print(f"[red]Error: {str(e)}[/red]")
+                logger.error(f"Branding mode error: {e}")
+                
+    finally:
+        await orchestrator.cleanup()
 
 
 async def jarvis_mode():
@@ -229,14 +306,15 @@ async def jarvis_interface():
 
 
 async def chat_interface():
-    """Interactive chat interface for HeyJarvis."""
+    """Universal intelligent chat interface with automatic agent routing."""
     
-    # Configuration
-    config = OrchestratorConfig(
+    # Configuration for Universal Orchestrator
+    config = UniversalOrchestratorConfig(
         anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
-        redis_url=os.getenv("REDIS_URL", "redis://localhost:6379"),
-        max_retries=int(os.getenv("MAX_RETRIES", "3")),
-        session_timeout=int(os.getenv("SESSION_TIMEOUT", "3600"))
+        redis_url=os.getenv("REDIS_URL", "redis://localhost:6380"),
+        routing_confidence_threshold=float(os.getenv("ROUTING_CONFIDENCE_THRESHOLD", "0.7")),
+        enable_caching=os.getenv("ENABLE_CACHING", "true").lower() == "true",
+        cache_ttl_minutes=int(os.getenv("CACHE_TTL_MINUTES", "30"))
     )
     
     if not config.anthropic_api_key:
@@ -244,20 +322,22 @@ async def chat_interface():
         console.print("Please set your Anthropic API key in the .env file.")
         return
     
-    # Initialize orchestrator
-    orchestrator = HeyJarvisOrchestrator(config)
+    # Initialize Universal Orchestrator
+    orchestrator = UniversalOrchestrator(config)
     
-    def progress_callback(node_name: str, progress: int, message: str):
-        """Progress callback for real-time updates."""
-        console.print(f"📊 Progress: {progress}% - {message}")
-    
-    orchestrator.set_progress_callback(progress_callback)
+    # Note: Universal Orchestrator doesn't need progress callback
+    # Individual orchestrators handle their own progress reporting
     
     try:
         await orchestrator.initialize()
         
         # Welcome message
-        console.print("\n[bold cyan]💬 HeyJarvis:[/bold cyan] Hi! I can help you create automation agents. What would you like to automate?\n")
+        console.print("\n[bold magenta]🧠 Universal AI:[/bold magenta] Hi! I can help with branding, business strategy, or technical automation. What can I help you with?\n")
+        console.print("[dim]💡 Branding Examples:[/dim]")
+        console.print("[dim]  • 'Create a brand for my coffee shop'[/dim]")
+        console.print("[dim]  • 'Generate a logo for my tech startup'[/dim]")
+        console.print("[dim]  • 'Make branding and actual logo images for my pen store'[/dim]")
+        console.print("[dim]💡 Other Examples: 'Help me grow my business', 'Monitor my email for urgent messages'[/dim]")
         
         session_id = str(uuid.uuid4())[:8]
         console.print(f"[dim]Session ID: {session_id}[/dim]\n")
@@ -282,14 +362,18 @@ async def chat_interface():
                 elif user_input.lower() == 'sessions':
                     await show_active_sessions(orchestrator)
                     continue
+                    
+                elif user_input.lower() in ['help', '?']:
+                    await show_help_message()
+                    continue
                 
                 # Process user request
-                console.print(f"\n[bold cyan]💬 HeyJarvis:[/bold cyan] I'll create an {user_input.lower()} agent for you...\n")
+                console.print(f"\n[bold magenta]🧠 Universal AI:[/bold magenta] Analyzing your request and routing to the best specialist...\n")
                 
-                result = await orchestrator.process_request(user_input, session_id)
+                result = await orchestrator.process_query(user_input, session_id)
                 
                 # Display results
-                await display_result(result)
+                await display_universal_result(result)
                 
             except KeyboardInterrupt:
                 console.print("\n[yellow]Session interrupted. Type 'continue' to resume later.[/yellow]")
@@ -398,6 +482,55 @@ async def show_active_sessions(orchestrator: HeyJarvisOrchestrator):
         )
     
     console.print(table)
+
+
+async def show_help_message():
+    """Display comprehensive help information including logo generation capabilities."""
+    console.print("\n[bold cyan]🆘 HeyJarvis Universal AI - Help Guide[/bold cyan]")
+    
+    console.print("\n[bold yellow]💼 BRANDING & LOGO GENERATION[/bold yellow]")
+    console.print("I can create complete brand identities including actual logo images!")
+    
+    console.print("\n[dim]📝 Brand Identity Examples:[/dim]")
+    console.print("  • 'Create a brand for my coffee shop'")
+    console.print("  • 'I need branding for my tech startup'")
+    console.print("  • 'Brand identity for my consulting business'")
+    
+    console.print("\n[dim]🎨 Logo Generation Examples:[/dim]")
+    console.print("  • 'Generate a logo for my bakery'")
+    console.print("  • 'Create logo images for my app'")
+    console.print("  • 'Make branding and actual logo for my store'")
+    console.print("  • 'Design a visual logo for my agency'")
+    
+    console.print("\n[bold yellow]🏢 BUSINESS STRATEGY[/bold yellow]")
+    console.print("  • 'Help me grow my business'")
+    console.print("  • 'Create a marketing strategy'")
+    console.print("  • 'Coordinate my sales and marketing teams'")
+    
+    console.print("\n[bold yellow]🤖 TECHNICAL AUTOMATION[/bold yellow]")
+    console.print("  • 'Monitor my email for urgent messages'")
+    console.print("  • 'Create a web scraper for product prices'")
+    console.print("  • 'Build an agent to track social media'")
+    
+    console.print("\n[bold green]💡 SPECIAL FEATURES[/bold green]")
+    console.print("  🖼️  DALL-E Logo Generation: Get actual logo images, not just prompts")
+    console.print("  🎨  Complete Brand Packages: Colors, names, domains, and visuals")
+    console.print("  🧠  Intelligent Routing: I automatically pick the right specialist")
+    console.print("  📊  Multi-Agent Coordination: Complex workflows handled seamlessly")
+    
+    console.print("\n[bold cyan]⌨️ COMMANDS[/bold cyan]")
+    console.print("  • Type 'help' or '?' - Show this help message")
+    console.print("  • Type 'sessions' - View active sessions")
+    console.print("  • Type 'continue' - Resume previous session")
+    console.print("  • Type 'exit' or 'quit' - End conversation")
+    
+    console.print("\n[bold magenta]🚀 PRO TIPS[/bold magenta]")
+    console.print("  • Be specific: 'tech startup' vs 'business'")
+    console.print("  • Mention 'logo' if you want actual images generated")
+    console.print("  • Include your industry for better brand targeting")
+    console.print("  • Ask follow-up questions to refine results")
+    
+    console.print(f"\n[dim]Ready to help! What can I assist you with?[/dim]\n")
 
 
 async def display_result(result: Dict[str, Any]):
@@ -1227,6 +1360,262 @@ async def show_business_context(jarvis: Jarvis, session_id: str):
         console.print(f"[red]Error accessing business context: {str(e)}[/red]")
 
 
+async def display_branding_result(result: Dict[str, Any]):
+    """Display branding agent result in a user-friendly format."""
+    status = result.get('status', 'unknown')
+    
+    if status == 'success':
+        # Check if this includes market research
+        analysis_type = result.get('analysis_type', 'branding_only')
+        market_research = result.get('market_research', {})
+        
+        if analysis_type == 'branding_and_market_research' and market_research:
+            # Show comprehensive results including market research
+            console.print("[bold green]✅ Brand and Market Research Completed![/bold green]\n")
+            
+            # Show branding assets
+            brand_name = result.get('brand_name', 'N/A')
+            if brand_name and brand_name != 'N/A':
+                console.print(f"[bold magenta]🎨 Brand Name:[/bold magenta] {brand_name}")
+            
+            # Show market research summary
+            console.print(f"\n[bold blue]📊 Market Research Summary:[/bold blue]")
+            
+            # Market size
+            market_size = market_research.get('market_size', {})
+            if market_size:
+                console.print(f"  📈 Total Market Size: {market_size.get('total_market_size', 'N/A')}")
+                console.print(f"  🎯 Addressable Market: {market_size.get('addressable_market', 'N/A')}")
+                console.print(f"  📈 Growth Rate: {market_size.get('growth_rate', 'N/A')}")
+            
+            # Competitive landscape
+            competitive = market_research.get('competitive_landscape', {})
+            if competitive:
+                competitors = competitive.get('major_competitors', [])
+                console.print(f"  🏢 Major Competitors: {len(competitors)} identified")
+                console.print(f"  ⚔️ Competitive Intensity: {competitive.get('competitive_intensity', 'N/A')}")
+            
+            # Opportunity assessment
+            opportunity = market_research.get('opportunity_assessment', {})
+            if opportunity:
+                console.print(f"  💡 Market Opportunity: {opportunity.get('market_opportunity', 'N/A')}")
+                console.print(f"  🎯 Competitive Advantage: {opportunity.get('competitive_advantage', 'N/A')}")
+            
+            # Pricing analysis
+            pricing = market_research.get('pricing_analysis', {})
+            if pricing:
+                console.print(f"  💰 Recommended Pricing: {pricing.get('recommended_pricing', 'N/A')}")
+            
+            # Show detailed market research
+            console.print(f"\n[bold yellow]📋 Detailed Market Research:[/bold yellow]")
+            console.print("• Market segmentation and target customers")
+            console.print("• Competitive landscape analysis")
+            console.print("• Pricing strategy recommendations")
+            console.print("• Geographic market assessment")
+            console.print("• Trends and future forecasts")
+            
+        else:
+            # Show branding assets only
+            console.print("[bold green]✅ Brand Created Successfully![/bold green]\n")
+            
+            # Brand name
+            brand_name = result.get('brand_name', 'N/A')
+            if brand_name and brand_name != 'N/A':
+                console.print(f"[bold magenta]🎨 Brand Name:[/bold magenta] {brand_name}")
+            
+            # Logo prompt
+            logo_prompt = result.get('logo_prompt', '')
+            if logo_prompt:
+                console.print(f"\n[bold blue]🎭 Logo Design Prompt:[/bold blue]")
+                console.print(f"{logo_prompt}")
+            
+            # Color palette
+            color_palette = result.get('color_palette', [])
+            if color_palette:
+                console.print(f"\n[bold yellow]🎨 Color Palette:[/bold yellow]")
+                for i, color in enumerate(color_palette, 1):
+                    console.print(f"  {i}. {color}")
+            
+            # Domain suggestions
+            domain_suggestions = result.get('domain_suggestions', [])
+            if domain_suggestions:
+                console.print(f"\n[bold cyan]🌐 Domain Suggestions:[/bold cyan]")
+                for domain in domain_suggestions[:5]:  # Show top 5
+                    console.print(f"  • {domain}")
+            
+            # Logo generation results - check multiple possible locations for logo data
+            logo_generation_success = False
+            logo_images = []
+            logo_urls = []
+            
+            # Check if logo generation data exists in response
+            response_data = result.get('response', result)  # Try nested response first, fallback to result
+            
+            if response_data.get('logo_generation_success'):
+                logo_generation_success = True
+                logo_images = response_data.get('logo_images', [])
+                # Extract URLs from logo_images
+                logo_urls = [img.get('image_url') for img in logo_images if isinstance(img, dict) and img.get('image_url')]
+            
+            # Also check for legacy logo_generation structure
+            legacy_logo_gen = result.get('logo_generation', {})
+            if legacy_logo_gen.get('attempted'):
+                if legacy_logo_gen.get('success'):
+                    logo_generation_success = True
+                    logo_urls.extend(result.get('logo_urls', []))
+                    logo_images.extend(legacy_logo_gen.get('images', []))
+            
+            # Display logo generation results if we found any
+            if logo_generation_success or logo_images or logo_urls:
+                console.print(f"\n[bold magenta]🖼️ Logo Generation Results:[/bold magenta]")
+                
+                if logo_generation_success:
+                    console.print("[green]✅ Logo generation successful![/green]")
+                    
+                    # Display image URLs
+                    if logo_urls:
+                        console.print(f"\n[bold blue]📸 Generated Logo Images:[/bold blue]")
+                        for i, url in enumerate(logo_urls, 1):
+                            if url:  # Only show non-empty URLs
+                                console.print(f"  {i}. {url}")
+                    
+                    # Display logo details
+                    if logo_images:
+                        console.print(f"\n[bold cyan]🎨 Logo Details:[/bold cyan]")
+                        for i, img in enumerate(logo_images, 1):
+                            if isinstance(img, dict):
+                                filename = img.get('filename', f'logo_{i}')
+                                dimensions = img.get('dimensions', '1024x1024')
+                                local_path = img.get('local_path', '')
+                                
+                                console.print(f"  • {filename} ({dimensions})")
+                                if local_path:
+                                    console.print(f"    📁 Saved to: {local_path}")
+                else:
+                    console.print("[red]❌ Logo generation failed[/red]")
+                    
+                    # Show error if available
+                    error = response_data.get('logo_generation_error') or legacy_logo_gen.get('error')
+                    if error:
+                        console.print(f"[red]Error: {error}[/red]")
+                    
+                    # Show enhanced prompt that can be used elsewhere
+                    enhanced_prompt = response_data.get('logo_generation_result', {}).get('enhanced_prompt', '')
+                    if enhanced_prompt:
+                        console.print(f"\n[bold blue]🎨 Enhanced Logo Prompt (for other AI tools):[/bold blue]")
+                        console.print(f"{enhanced_prompt}")
+                    
+                    # Show suggestions if available
+                    suggestions = response_data.get('logo_generation_result', {}).get('suggestions', [])
+                    if suggestions:
+                        console.print(f"\n[yellow]💡 Suggestions:[/yellow]")
+                        for suggestion in suggestions:
+                            console.print(f"  • {suggestion}")
+        
+        # Orchestration metadata
+        orchestration = result.get('orchestration', {})
+        if orchestration:
+            intent_category = orchestration.get('intent_category', 'unknown')
+            confidence = orchestration.get('confidence', 'unknown')
+            console.print(f"\n[dim]Intent Category: {intent_category} (Confidence: {confidence})[/dim]")
+        
+        # Next steps
+        if analysis_type == 'branding_and_market_research':
+            console.print("\n[bold green]💡 What's next?[/bold green]")
+            console.print("• Review detailed market research for strategic decisions")
+            console.print("• Use branding assets for visual identity")
+            console.print("• Develop business strategy based on market insights")
+            console.print("• Consider competitive positioning opportunities")
+        else:
+            console.print("\n[bold green]💡 What's next?[/bold green]")
+            console.print("• Use the logo prompt with DALL·E or Midjourney")
+            console.print("• Check domain availability for the suggestions")
+            console.print("• Refine your brand with additional details")
+            console.print("• Request market research with 'research the market'")
+        
+    elif status == 'not_supported':
+        console.print("[yellow]⚠️ This request doesn't seem to be branding-related.[/yellow]")
+        console.print("Try describing your business idea or brand requirements.")
+        
+    elif status == 'error':
+        error_msg = result.get('message', 'Unknown error occurred')
+        console.print(f"[red]❌ Branding failed: {error_msg}[/red]")
+        console.print("Try rephrasing your request with more details about your business.")
+        
+    else:
+        console.print(f"[yellow]Status: {status}[/yellow]")
+    
+    console.print()
+
+
+async def branding_demo_mode(orchestrator: BrandingOrchestrator, session_id: str):
+    """Demo mode for branding agent."""
+    console.clear()
+    
+    console.print(Panel(
+        "[bold blue]🎨 Branding Agent Demo[/bold blue]\n\n"
+        "Experience AI-powered brand creation with multiple examples.\n"
+        "Watch how the agent understands business ideas and generates\n"
+        "complete brand identities with names, logos, and colors.",
+        title="Branding Demo Mode",
+        border_style="blue"
+    ))
+    
+    # Demo examples
+    demo_examples = [
+        {
+            "business": "Eco-friendly coffee shop for professionals",
+            "description": "Sustainable coffee for busy professionals"
+        },
+        {
+            "business": "Tech startup building AI tools for small businesses",
+            "description": "AI automation platform for SMBs"
+        },
+        {
+            "business": "Artisanal pen company using recycled materials",
+            "description": "Premium writing instruments with eco-conscious design"
+        }
+    ]
+    
+    console.print("\n[bold yellow]Demo Examples:[/bold yellow]")
+    for i, example in enumerate(demo_examples, 1):
+        console.print(f"{i}. {example['business']}")
+    
+    console.print("\n[dim]Let's run through these examples automatically...[/dim]")
+    console.input("\n[dim]Press Enter to start the demo...[/dim]")
+    
+    for i, example in enumerate(demo_examples, 1):
+        console.print(f"\n[bold green]Demo {i}: {example['business']}[/bold green]")
+        console.print(f"[dim]{example['description']}[/dim]")
+        
+        # Process the request
+        result = await orchestrator.process_request(
+            f"I need a brand name and logo for my {example['business']}",
+            f"{session_id}_demo_{i}"
+        )
+        
+        # Display results
+        await display_branding_result(result)
+        
+        if i < len(demo_examples):
+            console.input("\n[dim]Press Enter for next demo...[/dim]")
+    
+    # Show educational summary
+    console.print(Panel(
+        "[bold green]🎓 Demo Summary:[/bold green]\n\n"
+        "You've seen how the Branding Agent:\n"
+        "• [bold]Understands Context:[/bold] Parses business descriptions intelligently\n"
+        "• [bold]Generates Names:[/bold] Creates memorable, relevant brand names\n"
+        "• [bold]Designs Logos:[/bold] Provides detailed logo design prompts\n"
+        "• [bold]Selects Colors:[/bold] Curates cohesive color palettes\n"
+        "• [bold]Suggests Domains:[/bold] Offers relevant domain name options\n\n"
+        "💡 [bold]Key Feature:[/bold] Works with any business idea, from coffee shops to tech startups!",
+        style="green"
+    ))
+    
+    console.input("\n[dim]Press Enter to continue...[/dim]")
+
+
 async def display_jarvis_result(result: Dict[str, Any]):
     """Display Jarvis orchestrator result in a user-friendly format."""
     # First display the normal result
@@ -1296,6 +1685,57 @@ async def display_jarvis_result(result: Dict[str, Any]):
         if reasoning:
             console.print(f"• Strategic purpose: {reasoning}")
         
+        console.print()
+
+
+async def display_universal_result(result: Dict[str, Any]):
+    """Display Universal Orchestrator result with routing information."""
+    if result.get("status") == "error":
+        console.print(f"[red]❌ Error: {result.get('error_message', 'Unknown error')}[/red]")
+        return
+    
+    # Show routing information
+    routing_info = result.get("routing_info", {})
+    if routing_info:
+        orchestrator = routing_info.get("orchestrator", "unknown")
+        intent = routing_info.get("intent", "unknown")
+        confidence = routing_info.get("confidence", 0)
+        reasoning = routing_info.get("reasoning", "")
+        
+        # Map orchestrator types to display names and emojis
+        orchestrator_display = {
+            "branding": ("🎨 Branding Specialist", "magenta"),
+            "jarvis_business": ("🧠 Business Strategy", "blue"),
+            "heyjarvis_technical": ("⚙️ Technical Automation", "cyan")
+        }
+        
+        display_name, color = orchestrator_display.get(orchestrator, ("🤖 AI Assistant", "white"))
+        
+        console.print(f"\n[bold {color}]🎯 Routed to: {display_name}[/bold {color}]")
+        console.print(f"[dim]Intent: {intent} (Confidence: {confidence:.1%})[/dim]")
+        if reasoning:
+            console.print(f"[dim]Reasoning: {reasoning}[/dim]")
+        console.print()
+    
+    # Display the actual response from the orchestrator
+    orchestrator_response = result.get("response", {})
+    
+    # Route to appropriate display function based on orchestrator type
+    if routing_info.get("orchestrator") == "branding":
+        await display_branding_result(orchestrator_response)
+    elif routing_info.get("orchestrator") == "jarvis_business":
+        await display_jarvis_result(orchestrator_response)
+    else:
+        # Default to technical result display
+        await display_result(orchestrator_response)
+    
+    # Show metadata
+    metadata = result.get("metadata", {})
+    if metadata:
+        processing_time = metadata.get("processing_time_ms", 0)
+        timestamp = metadata.get("timestamp", "")
+        
+        console.print(f"[dim]⏱️ Processing time: {processing_time}ms | Session: {metadata.get('session_id', 'unknown')}[/dim]")
         console.print()
 
 
@@ -1719,12 +2159,16 @@ def main():
     parser.add_argument("--demo", action="store_true", help="Run in demo mode")
     parser.add_argument("--jarvis", action="store_true", 
                        help="Enable business-level orchestration with Jarvis")
+    parser.add_argument("--branding", action="store_true",
+                       help="Enable branding agent orchestration")
     args = parser.parse_args()
     
     if args.demo:
         asyncio.run(demo_mode())
     elif args.jarvis:
         asyncio.run(jarvis_mode())
+    elif args.branding:
+        asyncio.run(branding_mode())
     else:
         asyncio.run(chat_interface())
 
