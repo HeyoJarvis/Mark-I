@@ -18,6 +18,9 @@ from datetime import datetime
 from ai_engines.anthropic_engine import AnthropicEngine
 from ai_engines.base_engine import AIEngineConfig
 
+# Import interactive approval system
+from utils.user_response_parser import UserResponseParser, ApprovalIntent
+
 logger = logging.getLogger(__name__)
 
 
@@ -61,6 +64,10 @@ class BrandingAgent:
         # Branding preferences and constraints
         self.max_domain_suggestions = self.config.get('max_domain_suggestions', 5)
         self.color_palette_size = self.config.get('color_palette_size', 4)
+        
+        # Interactive approval settings
+        self.interactive_approval = self.config.get('interactive_approval', True)
+        self.response_parser = UserResponseParser()
         
         self.logger.info("BrandingAgent initialized successfully")
     
@@ -514,7 +521,7 @@ Provide realistic, data-driven analysis based on current market conditions. Focu
         """
         if not self.ai_engine:
             self.logger.warning("AI engine not available - using fallback branding")
-            return self._generate_fallback_branding(business_info)
+            return await self._generate_fallback_branding(business_info)
         
         try:
             # Create prompt for Claude
@@ -525,6 +532,15 @@ Provide realistic, data-driven analysis based on current market conditions. Focu
             
             # Parse AI response
             branding_data = self._parse_ai_response(response.content)
+            
+            # Interactive approval step for logo prompt
+            if self.interactive_approval:
+                approved_logo_prompt = await self._request_logo_prompt_approval(
+                    branding_data['logo_prompt'], 
+                    branding_data, 
+                    business_info
+                )
+                branding_data['logo_prompt'] = approved_logo_prompt
             
             # Generate domain suggestions
             domain_suggestions = self._generate_domain_suggestions(branding_data['brand_name'])
@@ -538,7 +554,7 @@ Provide realistic, data-driven analysis based on current market conditions. Focu
             
         except Exception as e:
             self.logger.error(f"Error generating branding with AI: {e}")
-            return self._generate_fallback_branding(business_info)
+            return await self._generate_fallback_branding(business_info)
     
     def _create_branding_prompt(self, business_info: Dict[str, Any]) -> str:
         """
@@ -682,7 +698,7 @@ Ensure the response is valid JSON and all fields are properly filled.
             self.logger.error(f"Error generating domain suggestions: {e}")
             return []
     
-    def _generate_fallback_branding(self, business_info: Dict[str, Any]) -> BrandingResult:
+    async def _generate_fallback_branding(self, business_info: Dict[str, Any]) -> BrandingResult:
         """
         Generate fallback branding when AI is not available.
         
@@ -708,6 +724,22 @@ Ensure the response is valid JSON and all fields are properly filled.
         # Fallback color palette
         color_palette = ["#2C3E50", "#3498DB", "#E74C3C", "#F39C12"]
         
+        # Create branding data for interactive approval
+        branding_data = {
+            'brand_name': brand_name,
+            'logo_prompt': logo_prompt,
+            'color_palette': color_palette
+        }
+        
+        # Interactive approval step for logo prompt (even in fallback mode)
+        if self.interactive_approval:
+            approved_logo_prompt = await self._request_logo_prompt_approval(
+                logo_prompt, 
+                branding_data, 
+                business_info
+            )
+            logo_prompt = approved_logo_prompt
+        
         # Fallback domain suggestions
         clean_name = re.sub(r'[^a-zA-Z0-9]', '', brand_name.lower())
         domain_suggestions = [f"{clean_name}.com", f"{clean_name}.co"]
@@ -717,4 +749,150 @@ Ensure the response is valid JSON and all fields are properly filled.
             logo_prompt=logo_prompt,
             color_palette=color_palette,
             domain_suggestions=domain_suggestions
-        ) 
+        )
+    
+    async def _request_logo_prompt_approval(
+        self, 
+        logo_prompt: str, 
+        branding_data: Dict[str, Any], 
+        business_info: Dict[str, Any]
+    ) -> str:
+        """
+        Request user approval for the generated logo prompt.
+        
+        Args:
+            logo_prompt: Generated logo prompt to review
+            branding_data: Full branding data for context
+            business_info: Original business information
+            
+        Returns:
+            Approved logo prompt (original or regenerated)
+        """
+        from rich.console import Console
+        from rich.panel import Panel
+        from rich.prompt import Prompt
+        
+        console = Console()
+        max_attempts = 3
+        current_attempt = 1
+        current_prompt = logo_prompt
+        
+        while current_attempt <= max_attempts:
+            # Display the logo prompt for review
+            console.print("\n" + "="*60)
+            console.print("🎨 [bold blue]Logo Prompt Review[/bold blue]")
+            console.print("="*60)
+            
+            # Show business context
+            console.print(f"\n📋 [bold]Business:[/bold] {business_info.get('business_idea', 'N/A')}")
+            console.print(f"🏢 [bold]Brand Name:[/bold] {branding_data.get('brand_name', 'N/A')}")
+            console.print(f"🎨 [bold]Colors:[/bold] {', '.join(branding_data.get('color_palette', []))}")
+            
+            # Show the generated logo prompt in a panel
+            prompt_panel = Panel(
+                current_prompt,
+                title="Generated Logo Prompt",
+                title_align="left",
+                border_style="blue"
+            )
+            console.print("\n", prompt_panel)
+            
+            # Request user decision
+            console.print("\n💡 [bold yellow]What would you like to do?[/bold yellow]")
+            console.print("  • Type [green]'yes'[/green] to proceed with this prompt")
+            console.print("  • Type [red]'no'[/red] to skip logo generation")
+            console.print("  • Type [blue]'try again'[/blue] to generate a new prompt")
+            
+            # Get user input
+            user_response = Prompt.ask("\n[bold]Your decision", default="yes").strip()
+            
+            # Parse the response
+            decision = self.response_parser.parse_approval_response(user_response)
+            
+            console.print(f"\n🤖 Interpreted as: [bold]{decision.intent.value}[/bold] (confidence: {decision.confidence:.2f})")
+            
+            # Handle the decision
+            if decision.intent == ApprovalIntent.APPROVE and decision.confidence > 0.6:
+                console.print("✅ [green]Proceeding with logo generation![/green]\n")
+                return current_prompt
+                
+            elif decision.intent == ApprovalIntent.REJECT and decision.confidence > 0.6:
+                console.print("❌ [red]Skipping logo generation[/red]\n")
+                return ""  # Empty prompt means skip logo generation
+                
+            elif decision.intent == ApprovalIntent.REGENERATE and decision.confidence > 0.6:
+                console.print("🔄 [blue]Generating new logo prompt...[/blue]\n")
+                
+                # Generate a new prompt with variation
+                new_prompt = await self._regenerate_logo_prompt(business_info, branding_data, current_attempt)
+                current_prompt = new_prompt
+                current_attempt += 1
+                continue
+                
+            else:
+                # Unclear or low confidence response
+                suggestion = self.response_parser.suggest_clarification(decision)
+                if suggestion:
+                    console.print(f"❓ [yellow]{suggestion}[/yellow]\n")
+                current_attempt += 1
+                
+                if current_attempt > max_attempts:
+                    console.print("⚠️  [yellow]Max attempts reached. Using original prompt.[/yellow]\n")
+                    return logo_prompt
+        
+        # Fallback to original prompt
+        return logo_prompt
+    
+    async def _regenerate_logo_prompt(
+        self, 
+        business_info: Dict[str, Any], 
+        branding_data: Dict[str, Any], 
+        attempt: int
+    ) -> str:
+        """
+        Generate a new variation of the logo prompt.
+        
+        Args:
+            business_info: Original business information
+            branding_data: Current branding data
+            attempt: Current attempt number for variation
+            
+        Returns:
+            New logo prompt variation
+        """
+        if not self.ai_engine:
+            # Fallback variations without AI
+            variations = [
+                f"Create a minimalist logo for {branding_data.get('brand_name', 'the brand')} with clean lines and modern typography",
+                f"Design a creative logo for {branding_data.get('brand_name', 'the brand')} incorporating symbolic elements and bold colors",
+                f"Generate an elegant logo for {branding_data.get('brand_name', 'the brand')} with sophisticated styling and premium feel"
+            ]
+            return variations[attempt % len(variations)]
+        
+        # Use AI to generate a new variation
+        try:
+            variation_prompt = f"""
+            Generate a different creative logo design prompt for this business:
+            
+            Business: {business_info.get('business_idea', 'N/A')}
+            Brand Name: {branding_data.get('brand_name', 'N/A')}
+            Colors: {', '.join(branding_data.get('color_palette', []))}
+            
+            Previous prompt was: {branding_data.get('logo_prompt', 'N/A')}
+            
+            Create a new, different logo prompt that:
+            - Takes a different creative approach 
+            - Uses the same brand name and colors
+            - Offers a fresh perspective on the visual identity
+            - Is detailed and specific for logo generation
+            
+            Return only the new logo prompt, nothing else.
+            """
+            
+            response = await self.ai_engine.generate(variation_prompt)
+            return response.content.strip()
+            
+        except Exception as e:
+            self.logger.error(f"Error regenerating logo prompt: {e}")
+            # Fallback to simple variation
+            return f"Design an alternative logo concept for {branding_data.get('brand_name', 'the brand')} with a different creative approach" 
