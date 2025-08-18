@@ -24,7 +24,7 @@ from typing import Literal
 IntentCategory = Literal[
     "branding", "sales", "marketing", "engineering", 
     "customer_support", "legal", "logistics", "finance", 
-    "operations", "general"
+    "operations", "market_research", "general"
 ]
 
 IntentConfidence = Literal["high", "medium", "low"]
@@ -90,6 +90,7 @@ class IntentParser:
             "logistics": ["inventory_agent", "shipping_agent"],
             "finance": ["accounting_agent", "budget_agent"],
             "operations": ["process_optimizer_agent"],
+            "market_research": ["market_research_agent"],
             "general": ["general_assistant_agent"]
         }
         
@@ -155,6 +156,22 @@ class IntentParser:
                 priority=3,
                 parameters=["target_market", "product", "budget"],
                 confidence_boost=0.2
+            ),
+            
+            # Market Research patterns
+            IntentPattern(
+                category="market_research",
+                patterns=[
+                    r"market.*research|market.*analysis|market.*intelligence",
+                    r"competitor.*analysis|competitive.*landscape|competition",
+                    r"market.*size|market.*opportunity|industry.*analysis",
+                    r"customer.*insights|target.*market|customer.*research",
+                    r"pricing.*analysis|market.*trends|industry.*trends",
+                    r"feasibility.*study|market.*validation|business.*intelligence"
+                ],
+                priority=3,
+                parameters=["industry", "geographic_market", "business_idea", "target_audience"],
+                confidence_boost=0.25
             ),
             
             # Marketing patterns

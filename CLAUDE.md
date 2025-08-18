@@ -108,6 +108,7 @@ docker-compose up -d
 - **Core**: LangGraph 0.2.16, LangChain 0.2.16, Anthropic Claude API
 - **Infrastructure**: Redis, Docker, FastAPI
 - **Data**: Pydantic for validation, Rich for CLI interface
+- **Logo Generation**: OpenAI DALL-E integration for branding features
 
 ## Development Notes
 

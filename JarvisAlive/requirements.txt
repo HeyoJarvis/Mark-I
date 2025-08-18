@@ -53,6 +53,15 @@ beautifulsoup4==4.12.3
 uuid==1.30
 pathlib2==2.3.7
 
+# Redis async support for message bus
+redis[hiredis]==5.0.1
+
+# Process monitoring for agent health
+psutil==5.9.8
+
+# Statistics for analytics
+statistics
+
 # Development and testing
 pytest==7.4.3
 pytest-asyncio==0.21.1

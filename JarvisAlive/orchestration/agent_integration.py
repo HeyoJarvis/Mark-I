@@ -22,6 +22,7 @@ from .agent_communication import AgentMessageBus, MessageType, MessagePriority
 from .intent_parser import ParsedIntent
 from departments.branding.branding_agent import BrandingAgent
 from departments.branding.logo_generation_agent import LogoGenerationAgent
+from departments.market_research.market_research_agent import MarketResearchAgent
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +141,35 @@ class AgentRegistry:
             }
         )
         
+        # Register MarketResearchAgent
+        self.register_agent(
+            agent_id="market_research_agent",
+            agent_class=MarketResearchAgent,
+            metadata={
+                "name": "Market Research Agent",
+                "description": "Comprehensive market intelligence, competitor analysis, and strategic insights",
+                "capabilities": [
+                    "market_analysis", "competitor_research", "customer_insights", 
+                    "pricing_analysis", "opportunity_assessment", "trend_analysis"
+                ],
+                "input_schema": {
+                    "business_idea": "string",
+                    "industry": "string (optional)",
+                    "target_market": "string (optional)",
+                    "geographic_focus": "string (optional)"
+                },
+                "output_schema": {
+                    "market_size": "object with total_market_size, growth_rate",
+                    "competitive_landscape": "object with competitors, barriers_to_entry",
+                    "customer_analysis": "object with profiles, pain_points, buying_behavior",
+                    "pricing_analysis": "object with price_ranges, recommended_pricing",
+                    "opportunity_assessment": "object with opportunities, risks, success_factors"
+                },
+                "category": "market_research",
+                "coordination": ["works_with_branding_agent", "informs_business_strategy"]
+            }
+        )
+        
         # Add more agents here as they become available
         # self.register_agent("sales_agent", SalesAgent, {...})
         # self.register_agent("marketing_agent", MarketingAgent, {...})
@@ -252,6 +282,56 @@ class AgentExecutor:
         asyncio.create_task(self._execute_agent(invocation))
         
         return invocation_id
+    
+    async def invoke_agent_and_wait(
+        self, 
+        agent_id: str, 
+        input_state: Dict[str, Any], 
+        context: Optional[Dict[str, Any]] = None,
+        priority: MessagePriority = MessagePriority.MEDIUM
+    ) -> AgentResponse:
+        """
+        Invoke an agent and wait for the response.
+        
+        Args:
+            agent_id: Agent identifier
+            input_state: Input state for the agent
+            context: Additional context
+            priority: Execution priority
+            
+        Returns:
+            Agent response
+        """
+        # Validate agent exists
+        agent_class = self.agent_registry.get_agent(agent_id)
+        if not agent_class:
+            raise ValueError(f"Agent not found: {agent_id}")
+        
+        # Create invocation
+        invocation_id = str(uuid.uuid4())
+        invocation = AgentInvocation(
+            invocation_id=invocation_id,
+            agent_id=agent_id,
+            input_state=input_state,
+            context=context or {},
+            priority=priority
+        )
+        
+        # Store invocation
+        self.active_invocations[invocation_id] = invocation
+        
+        # Log invocation
+        self.logger.info(f"Invoking agent {agent_id} with invocation {invocation_id} and waiting")
+        
+        # Execute agent and await result
+        await self._execute_agent(invocation)
+        
+        # Return the response
+        response = self.response_cache.get(invocation_id)
+        if not response:
+            raise RuntimeError(f"No response found for invocation {invocation_id}")
+        
+        return response
     
     async def _execute_agent(self, invocation: AgentInvocation):
         """Execute an agent invocation."""

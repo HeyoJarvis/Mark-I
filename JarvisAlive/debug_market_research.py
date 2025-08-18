@@ -1,75 +1,73 @@
 #!/usr/bin/env python3
-"""Debug market research agent JSON serialization issue."""
-
+"""
+Debug the market research agent to find the string/dict issue
+"""
 import asyncio
-import os
-import sys
-import json
-from rich.console import Console
+import logging
+import traceback
+from orchestration.persistent.agents.persistent_market_research_agent import PersistentMarketResearchAgent
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Setup logging
+logging.basicConfig(level=logging.INFO)
 
-from departments.market_research.market_research_agent import MarketResearchAgent, CompetitorProfile
-
-console = Console()
-
-async def debug_serialization():
-    """Debug the JSON serialization issue."""
+async def debug_market_research():
+    """Debug market research agent methods"""
+    
+    agent = PersistentMarketResearchAgent("debug_agent", {
+        'anthropic_api_key': 'test_key'
+    })
+    
     try:
-        # Test basic serialization of our dataclasses
-        console.print("🧪 Testing JSON serialization of dataclasses...")
+        await agent.on_start()
         
-        # Test CompetitorProfile
-        competitor = CompetitorProfile(
-            name="Test Competitor",
-            website="test.com", 
-            description="Test description"
-        )
-        
-        console.print(f"CompetitorProfile created: {competitor.name}")
-        
-        # Test to_dict method
-        competitor_dict = competitor.to_dict()
-        console.print(f"CompetitorProfile to_dict: {type(competitor_dict)}")
-        
-        # Test JSON serialization of dict
-        competitor_json = json.dumps(competitor_dict)
-        console.print(f"✅ CompetitorProfile dict JSON serialization: OK")
-        
-        # Test direct JSON serialization (should fail)
+        # Test each method individually
+        print("Testing market opportunity analysis...")
         try:
-            direct_json = json.dumps(competitor)
-            console.print(f"❌ Direct CompetitorProfile serialization should have failed!")
-        except TypeError as e:
-            console.print(f"✅ Direct CompetitorProfile serialization correctly failed: {str(e)}")
+            result1 = await agent._analyze_market_opportunity({
+                'business_idea': 'setup a coffee shop business',
+                'industry': 'General', 
+                'location': 'Global'
+            })
+            print(f"Market opportunity result type: {type(result1)}")
+            print(f"Market opportunity result: {result1}")
+            
+        except Exception as e:
+            print(f"Market opportunity failed: {e}")
+            traceback.print_exc()
         
-        # Test the agent initialization
-        console.print("\n🤖 Testing agent initialization...")
-        agent = MarketResearchAgent()
-        
-        # Test parameter extraction
-        test_state = {
-            'business_idea': 'A specialty coffee shop',
-            'business_type': 'coffee shop',
-            'brand_name': 'Test Coffee'
-        }
-        
-        params = agent._extract_research_params(test_state)
-        console.print(f"✅ Parameters extracted: {params}")
-        
-        # Test JSON serialization of params
+        print("\nTesting competitive analysis...")
         try:
-            params_json = json.dumps(params)
-            console.print(f"✅ Parameters JSON serialization: OK")
-        except TypeError as e:
-            console.print(f"❌ Parameters JSON serialization failed: {str(e)}")
+            result2 = await agent._analyze_competition({
+                'business_idea': 'setup a coffee shop business',
+                'industry': 'General',
+                'location': 'Global'
+            })
+            print(f"Competitive analysis result type: {type(result2)}")
+            print(f"Competitive analysis result: {result2}")
+            
+        except Exception as e:
+            print(f"Competitive analysis failed: {e}")
+            traceback.print_exc()
         
-        console.print("\n🎉 Debug completed - basic serialization works!")
-        
+        print("\nTesting target audience research...")
+        try:
+            result3 = await agent._research_target_audience({
+                'business_idea': 'setup a coffee shop business',
+                'industry': 'General',
+                'geographic_focus': 'Global'
+            })
+            print(f"Target audience result type: {type(result3)}")
+            print(f"Target audience result: {result3}")
+            
+        except Exception as e:
+            print(f"Target audience research failed: {e}")
+            traceback.print_exc()
+            
     except Exception as e:
-        console.print(f"❌ Debug error: {e}")
-        import traceback
+        print(f"Agent setup failed: {e}")
         traceback.print_exc()
+    
+    await agent.on_stop()
 
 if __name__ == "__main__":
-    asyncio.run(debug_serialization())
+    asyncio.run(debug_market_research())

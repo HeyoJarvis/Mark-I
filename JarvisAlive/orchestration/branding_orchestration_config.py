@@ -61,7 +61,7 @@ class BrandingAgentConfig(BaseModel):
         default_factory=lambda: {
             "enable_task_locking": True,
             "max_concurrent_requests": 10,
-            "request_timeout_seconds": 30,
+            "request_timeout_seconds": 300,  # CRITICAL FIX: 5 minutes for regeneration calls
             "enable_rate_limiting": True
         },
         description="Security and isolation settings"
@@ -102,7 +102,7 @@ PRODUCTION_CONFIG = BrandingAgentConfig(
     security={
         "enable_task_locking": True,
         "max_concurrent_requests": 100,
-        "request_timeout_seconds": 60,
+        "request_timeout_seconds": 300,  # CRITICAL FIX: 5 minutes for regeneration calls
         "enable_rate_limiting": True
     }
 )
@@ -137,7 +137,7 @@ DEVELOPMENT_CONFIG = BrandingAgentConfig(
     security={
         "enable_task_locking": False,  # Disable for easier debugging
         "max_concurrent_requests": 3,
-        "request_timeout_seconds": 15,
+        "request_timeout_seconds": 300,  # CRITICAL FIX: 5 minutes for regeneration calls
         "enable_rate_limiting": False
     }
 )

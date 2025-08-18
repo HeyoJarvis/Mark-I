@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 class RoutingIntent(str, Enum):
     """Intent types for orchestrator routing."""
     BRANDING = "branding"
+    MARKET_RESEARCH = "market_research"
     JARVIS_BUSINESS = "jarvis_business" 
     HEYJARVIS_TECHNICAL = "heyjarvis_technical"
     UNKNOWN = "unknown"
@@ -224,8 +225,14 @@ class UniversalOrchestrator:
         conversation_history = await self._get_conversation_context(session_id)
         
         if not self.ai_engine:
-            # Fallback to rule-based classification
-            return self._rule_based_classification(user_query)
+            # TODO: Remove rule-based fallback - force NLP usage
+            self.logger.error("AI engine not available - cannot classify intent without NLP")
+            return RoutingDecision(
+                intent=RoutingIntent.UNKNOWN,
+                confidence=0.0,
+                reasoning="AI engine not available for NLP classification",
+                orchestrator_type="unknown"
+            )
         
         try:
             prompt = self._create_classification_prompt(user_query, conversation_history, context)
@@ -235,7 +242,14 @@ class UniversalOrchestrator:
             
         except Exception as e:
             self.logger.error(f"AI classification failed: {e}")
-            return self._rule_based_classification(user_query)
+            # TODO: Remove rule-based fallback - should fix NLP issues instead
+            self.logger.warning("Forcing NLP-only classification - fix AI issues instead of fallback")
+            return RoutingDecision(
+                intent=RoutingIntent.UNKNOWN,
+                confidence=0.0,
+                reasoning=f"NLP classification failed: {str(e)}",
+                orchestrator_type="unknown"
+            )
     
     def _create_classification_prompt(
         self, 
@@ -253,13 +267,16 @@ class UniversalOrchestrator:
 You are an intelligent routing system that classifies user queries to determine which specialized AI agent should handle them.
 
 Available Orchestrators:
-1. BRANDING - Brand creation, logo design, color palettes, market research, business identity
+1. BRANDING - Brand creation, logo design, color palettes, business identity (NOT market research)
    Examples: "Create a brand for my coffee shop", "Design a logo", "I need brand colors"
 
-2. JARVIS_BUSINESS - High-level business strategy, department coordination, multi-agent workflows
+2. MARKET_RESEARCH - Market analysis, competitor research, industry insights, customer analysis, pricing trends
+   Examples: "Analyze the EV market", "Competitor analysis for fintech", "Market size for sustainable fashion"
+
+3. JARVIS_BUSINESS - High-level business strategy, department coordination, multi-agent workflows
    Examples: "Help me grow my business", "Coordinate marketing and sales", "Business insights"
 
-3. HEYJARVIS_TECHNICAL - Technical agent creation, automation, monitoring, coding tasks
+4. HEYJARVIS_TECHNICAL - Technical agent creation, automation, monitoring, coding tasks
    Examples: "Create an email monitoring agent", "Build a web scraper", "Monitor stock prices"
 
 User Query: "{user_query}"
@@ -268,7 +285,7 @@ User Query: "{user_query}"
 
 Classify this query and respond in JSON format:
 {{
-  "intent": "BRANDING|JARVIS_BUSINESS|HEYJARVIS_TECHNICAL",
+  "intent": "BRANDING|MARKET_RESEARCH|JARVIS_BUSINESS|HEYJARVIS_TECHNICAL",
   "confidence": 0.0-1.0,
   "reasoning": "Brief explanation of why this classification was chosen",
   "key_indicators": ["words or phrases that influenced the decision"],
@@ -322,16 +339,32 @@ Focus on the PRIMARY intent - what is the user ultimately trying to accomplish?
             
         except Exception as e:
             self.logger.error(f"Failed to parse classification response: {e}")
-            return self._rule_based_classification("")
+            # TODO: Remove rule-based fallback
+            return RoutingDecision(
+                intent=RoutingIntent.UNKNOWN,
+                confidence=0.0,
+                reasoning=f"Failed to parse NLP response: {str(e)}",
+                orchestrator_type="unknown"
+            )
     
-    def _rule_based_classification(self, user_query: str) -> RoutingDecision:
+    # TODO: DEPRECATED - Remove this method after confirming NLP works
+    def _rule_based_classification_DEPRECATED(self, user_query: str) -> RoutingDecision:
         """Fallback rule-based classification."""
         query_lower = user_query.lower()
         
         # Branding keywords
         branding_keywords = [
             "brand", "logo", "colors", "palette", "design", "identity", 
-            "marketing", "name", "domain", "visual", "creative"
+            "name", "domain", "visual", "creative"
+        ]
+        
+        # Market research keywords
+        market_research_keywords = [
+            "market research", "competitor analysis", "market size", 
+            "industry analysis", "customer insights", "pricing analysis",
+            "market trends", "competitive landscape", "market opportunity",
+            "feasibility study", "business intelligence", "pricing trends",
+            "analyze", "research"
         ]
         
         # Business strategy keywords  
@@ -348,10 +381,19 @@ Focus on the PRIMARY intent - what is the user ultimately trying to accomplish?
         ]
         
         branding_score = sum(1 for keyword in branding_keywords if keyword in query_lower)
+        market_research_score = sum(1 for keyword in market_research_keywords if keyword in query_lower)
         business_score = sum(1 for keyword in business_keywords if keyword in query_lower)  
         technical_score = sum(1 for keyword in technical_keywords if keyword in query_lower)
         
-        if branding_score >= business_score and branding_score >= technical_score:
+        # Market research gets priority if detected
+        if market_research_score > 0:
+            return RoutingDecision(
+                intent=RoutingIntent.MARKET_RESEARCH,
+                confidence=0.8,
+                reasoning="Rule-based classification detected market research keywords",
+                orchestrator_type="market_research"
+            )
+        elif branding_score >= business_score and branding_score >= technical_score:
             return RoutingDecision(
                 intent=RoutingIntent.BRANDING,
                 confidence=0.6,
@@ -384,6 +426,8 @@ Focus on the PRIMARY intent - what is the user ultimately trying to accomplish?
         
         if routing_decision.intent == RoutingIntent.BRANDING:
             return await self._route_to_branding(user_query, session_id, context)
+        elif routing_decision.intent == RoutingIntent.MARKET_RESEARCH:
+            return await self._route_to_market_research(user_query, session_id, context)
         elif routing_decision.intent == RoutingIntent.JARVIS_BUSINESS:
             return await self._route_to_jarvis(user_query, session_id, context)
         elif routing_decision.intent == RoutingIntent.HEYJARVIS_TECHNICAL:
@@ -398,6 +442,56 @@ Focus on the PRIMARY intent - what is the user ultimately trying to accomplish?
             await self._initialize_branding_orchestrator()
         
         return await self.branding_orchestrator.process_request(user_query, session_id, context)
+    
+    async def _route_to_market_research(self, user_query: str, session_id: str, context: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """Route to market research agent via agent integration system."""
+        # For now, route market research through the agent integration system
+        # In the future, we could create a dedicated market research orchestrator
+        if not hasattr(self, 'agent_executor'):
+            # Initialize agent executor with proper dependencies
+            from .agent_integration import AgentExecutor, AgentMessageBus
+            import redis.asyncio as redis
+            
+            # Initialize Redis client
+            redis_client = redis.from_url(self.config.redis_url)
+            
+            # Initialize message bus
+            message_bus = AgentMessageBus(redis_client)
+            
+            # Initialize agent executor
+            self.agent_executor = AgentExecutor(redis_client, message_bus)
+        
+        # Invoke market research agent and await response
+        try:
+            response = await self.agent_executor.invoke_agent_and_wait(
+                agent_id="market_research_agent",
+                input_state={
+                    "business_idea": user_query,
+                    "user_request": user_query,
+                    "session_id": session_id
+                },
+                context={"orchestrator": "universal", "routing_intent": "market_research"}
+            )
+            
+            return {
+                "status": "completed",
+                "orchestrator": "market_research",
+                "agent_used": "market_research_agent", 
+                "invocation_id": response.invocation_id,
+                "result": response.output_state,
+                "agent_status": response.status.value,
+                "execution_time_ms": response.execution_time_ms,
+                "session_id": session_id
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Market research routing failed: {e}")
+            return {
+                "status": "error",
+                "orchestrator": "market_research",
+                "error": f"Market research failed: {str(e)}",
+                "session_id": session_id
+            }
     
     async def _route_to_jarvis(self, user_query: str, session_id: str, context: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         """Route to Jarvis orchestrator."""

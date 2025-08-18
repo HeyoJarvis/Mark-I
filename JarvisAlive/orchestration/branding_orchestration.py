@@ -239,7 +239,7 @@ class BrandingOrchestrator:
             )
             
             # Wait for branding response
-            branding_response = await self._wait_for_response(branding_invocation_id, timeout_seconds=30)
+            branding_response = await self._wait_for_response(branding_invocation_id, timeout_seconds=300)
             
             if not branding_response:
                 return {
@@ -447,7 +447,7 @@ class BrandingOrchestrator:
         
         return False
     
-    async def _wait_for_response(self, invocation_id: str, timeout_seconds: int = 30) -> Optional[Any]:
+    async def _wait_for_response(self, invocation_id: str, timeout_seconds: int = 300) -> Optional[Any]:
         """Wait for agent response with timeout."""
         start_time = datetime.utcnow()
         

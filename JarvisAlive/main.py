@@ -7,7 +7,7 @@ import sys
 import argparse
 import uuid
 from datetime import datetime
-from typing import Dict, Any, Optional, Callable
+from typing import Dict, Any, Optional, Callable, List
 from dotenv import load_dotenv
 from rich.console import Console
 from rich.panel import Panel
@@ -19,6 +19,14 @@ from orchestration.orchestrator import HeyJarvisOrchestrator, OrchestratorConfig
 from orchestration.jarvis import Jarvis, JarvisConfig
 from orchestration.branding_orchestration import BrandingOrchestrator, OrchestrationConfig
 from orchestration.universal_orchestrator import UniversalOrchestrator, UniversalOrchestratorConfig
+from orchestration.intelligence.workflow_brain import WorkflowBrain
+from orchestration.intelligence.models import AutoPilotMode, WorkflowStatus, HITLPreferences
+from orchestration.persistent.persistent_system import create_development_persistent_system, PersistentSystem
+from orchestration.persistent.enhanced_workflow_brain import EnhancedWorkflowBrain
+from orchestration.persistent.advanced_features import (
+    InterAgentCommunicationManager, WorkflowTemplateManager, PerformanceAnalyticsEngine
+)
+from orchestration.intelligence.intelligent_workflow_manager import IntelligentWorkflowManager
 from conversation.websocket_handler import websocket_handler, OperatingMode
 
 # Load environment variables from .env file
@@ -303,6 +311,367 @@ async def jarvis_interface():
                 
     finally:
         await jarvis.close()
+
+
+async def intelligence_mode():
+    """Intelligence Layer mode with Human-in-the-Loop workflow orchestration."""
+    
+    # Configuration for WorkflowBrain
+    config = {
+        'anthropic_api_key': os.getenv("ANTHROPIC_API_KEY"),
+        'redis_url': os.getenv("REDIS_URL", "redis://localhost:6379")
+    }
+    
+    if not config['anthropic_api_key']:
+        console.print("[red]Error: ANTHROPIC_API_KEY not found in environment variables.[/red]")
+        console.print("Please set your Anthropic API key in the .env file.")
+        return
+    
+    # Initialize WorkflowBrain
+    workflow_brain = WorkflowBrain(config)
+    
+    try:
+        await workflow_brain.initialize_orchestration()
+        
+        # Welcome message
+        console.print("\n" + "="*80)
+        console.print("[bold blue]🧠 Intelligence Layer: Human-in-the-Loop Workflow Orchestration[/bold blue]")
+        console.print("="*80)
+        console.print("\n[bold cyan]Welcome to the Intelligence Layer![/bold cyan]")
+        console.print("I orchestrate complex workflows with AI guidance and human oversight.\n")
+        
+        console.print("[bold yellow]🎯 What I can do:[/bold yellow]")
+        console.print("  • Create intelligent business workflows")
+        console.print("  • Guide you through multi-step processes") 
+        console.print("  • Provide AI recommendations with human control")
+        console.print("  • Auto-pilot when you want, human control when you need it\n")
+        
+        console.print("[bold yellow]📋 Workflow Examples:[/bold yellow]")
+        console.print("  • 'Create a sustainable coffee subscription business'")
+        console.print("  • 'Launch a tech consulting service'")
+        console.print("  • 'Build a comprehensive marketing strategy'\n")
+        
+        console.print("[bold yellow]⚙️ Control Commands:[/bold yellow]")
+        console.print("  • 'autopilot on/off/smart' - Control automation level")
+        console.print("  • 'status' - View current workflow progress")
+        console.print("  • 'workflows' - List active workflows")
+        console.print("  • 'help' - Show detailed command help\n")
+        
+        session_id = str(uuid.uuid4())[:8]
+        console.print(f"[dim]Session ID: {session_id}[/dim]\n")
+        
+        # Track active workflows for this session
+        active_workflows = {}
+        current_workflow_id = None
+        
+        while True:
+            try:
+                # Get user input
+                user_input = console.input("[bold blue]🧠 You:[/bold blue] ").strip()
+                
+                if not user_input:
+                    continue
+                    
+                # Handle commands
+                if user_input.lower() in ['exit', 'quit']:
+                    console.print("[yellow]Goodbye! Your workflow progress has been saved.[/yellow]")
+                    break
+                    
+                elif user_input.lower() == 'help':
+                    await show_intelligence_help()
+                    continue
+                    
+                elif user_input.lower() == 'status':
+                    await show_workflow_status(workflow_brain, active_workflows)
+                    continue
+                    
+                elif user_input.lower() == 'workflows':
+                    await show_active_workflows(workflow_brain, active_workflows)
+                    continue
+                    
+                elif user_input.lower().startswith('autopilot'):
+                    await handle_autopilot_command(user_input, active_workflows)
+                    continue
+                
+                elif user_input.lower() == 'continue':
+                    if current_workflow_id and current_workflow_id in workflow_brain.active_workflows:
+                        await continue_workflow(workflow_brain, current_workflow_id, active_workflows)
+                    else:
+                        console.print("[yellow]No active workflow to continue.[/yellow]")
+                    continue
+                
+                # Check if this is a workflow continuation command
+                if await is_workflow_continuation_command(user_input, current_workflow_id, workflow_brain):
+                    await handle_workflow_continuation(user_input, current_workflow_id, workflow_brain, active_workflows)
+                    continue
+                
+                # Create new workflow
+                console.print(f"\n[bold blue]🧠 Intelligence Layer:[/bold blue] Creating intelligent workflow for your request...\n")
+                
+                try:
+                    # Create workflow
+                    workflow_id = await workflow_brain.create_workflow(
+                        user_id="human_user",
+                        session_id=session_id,
+                        workflow_type="business_creation", 
+                        initial_request=user_input,
+                        context={"session_mode": "interactive"}
+                    )
+                    
+                    # Store workflow for session tracking
+                    active_workflows[workflow_id] = {
+                        'request': user_input,
+                        'created_at': datetime.now(),
+                        'last_activity': datetime.now()
+                    }
+                    
+                    # Set as current active workflow
+                    current_workflow_id = workflow_id
+                    
+                    console.print(f"[green]✅ Workflow created: {workflow_id}[/green]")
+                    
+                    # Execute workflow with Human-in-the-Loop
+                    console.print("[bold yellow]🚀 Starting intelligent execution with human oversight...[/bold yellow]\n")
+                    
+                    result = await workflow_brain.execute_workflow(workflow_id)
+                    
+                    # Display results
+                    await display_intelligence_result(result, workflow_brain.active_workflows[workflow_id])
+                    
+                    # Update session tracking
+                    active_workflows[workflow_id]['last_activity'] = datetime.now()
+                    active_workflows[workflow_id]['status'] = result.status.value
+                    
+                except Exception as e:
+                    console.print(f"[red]Error creating workflow: {str(e)}[/red]")
+                    logger.error(f"Intelligence mode error: {e}")
+                
+            except KeyboardInterrupt:
+                console.print("\n[yellow]Workflow paused. Type 'continue' to resume or 'quit' to exit.[/yellow]")
+                continue
+            except Exception as e:
+                console.print(f"[red]Error: {str(e)}[/red]")
+                logger.error(f"Intelligence mode error: {e}")
+                
+    finally:
+        # Cleanup would go here if needed
+        console.print("[dim]Intelligence Layer session ended.[/dim]")
+
+
+async def show_intelligence_help():
+    """Show detailed help for Intelligence Layer."""
+    console.print("\n[bold cyan]🧠 Intelligence Layer - Detailed Help[/bold cyan]")
+    
+    console.print("\n[bold yellow]🎯 WORKFLOW CREATION[/bold yellow]")
+    console.print("Describe what you want to accomplish and I'll create an intelligent workflow:")
+    console.print("  • Business creation and strategy")
+    console.print("  • Product development and launch")
+    console.print("  • Marketing campaigns and execution")
+    console.print("  • Process automation and optimization")
+    
+    console.print("\n[bold yellow]⚙️ AUTOPILOT CONTROL[/bold yellow]")
+    console.print("Control how much automation vs. human oversight you want:")
+    console.print("  • 'autopilot off' - Always ask for human decisions")
+    console.print("  • 'autopilot smart' - Auto-proceed when AI confidence > 85%")
+    console.print("  • 'autopilot on' - Full automation with safety checks")
+    
+    console.print("\n[bold yellow]🔄 WORKFLOW COMMANDS[/bold yellow]")
+    console.print("  • 'status' - View current workflow progress and context")
+    console.print("  • 'workflows' - List all active workflows in this session")
+    console.print("  • 'pause' - Pause current workflow")
+    console.print("  • 'continue' - Resume paused workflow")
+    
+    console.print("\n[bold yellow]🚨 EMERGENCY CONTROLS[/bold yellow]")
+    console.print("  • 'emergency stop' - Immediately halt all processing")
+    console.print("  • Ctrl+C - Pause current operation")
+    console.print("  • 'quit' - Exit Intelligence Layer")
+
+
+async def show_workflow_status(workflow_brain: WorkflowBrain, active_workflows: dict):
+    """Show status of active workflows."""
+    if not active_workflows:
+        console.print("[yellow]No active workflows in this session.[/yellow]")
+        return
+    
+    table = Table(title="Active Workflows Status")
+    table.add_column("Workflow ID", style="cyan")
+    table.add_column("Request", style="white")
+    table.add_column("Status", style="green")
+    table.add_column("Progress", style="blue")
+    table.add_column("Created", style="yellow")
+    
+    for workflow_id, workflow_info in active_workflows.items():
+        if workflow_id in workflow_brain.active_workflows:
+            workflow_state = workflow_brain.active_workflows[workflow_id]
+            progress = f"{workflow_state.progress_percentage:.1f}%"
+            status = workflow_state.status.value
+        else:
+            progress = "Unknown"
+            status = workflow_info.get('status', 'Unknown')
+        
+        # Truncate long requests
+        request = workflow_info['request']
+        if len(request) > 40:
+            request = request[:37] + "..."
+            
+        created = workflow_info['created_at'].strftime("%H:%M:%S")
+        
+        table.add_row(workflow_id, request, status, progress, created)
+    
+    console.print(table)
+
+
+async def show_active_workflows(workflow_brain: WorkflowBrain, active_workflows: dict):
+    """Show detailed view of active workflows."""
+    if not active_workflows:
+        console.print("[yellow]No active workflows in this session.[/yellow]")
+        return
+    
+    for workflow_id, workflow_info in active_workflows.items():
+        if workflow_id in workflow_brain.active_workflows:
+            workflow_state = workflow_brain.active_workflows[workflow_id]
+            
+            console.print(f"\n[bold cyan]📋 Workflow: {workflow_id}[/bold cyan]")
+            console.print(f"   Request: {workflow_info['request']}")
+            console.print(f"   Status: {workflow_state.status.value}")
+            console.print(f"   Progress: {workflow_state.progress_percentage:.1f}%")
+            console.print(f"   Autopilot: {workflow_state.autopilot_mode.value}")
+            console.print(f"   Steps completed: {len(workflow_state.completed_steps)}")
+            console.print(f"   Human decisions: {len(workflow_state.human_decisions)}")
+
+
+async def handle_autopilot_command(command: str, active_workflows: dict):
+    """Handle autopilot control commands."""
+    if 'on' in command.lower() or 'full' in command.lower():
+        console.print("[green]✅ Autopilot set to FULL AUTO for new workflows[/green]")
+    elif 'smart' in command.lower():
+        console.print("[blue]🔄 Autopilot set to SMART AUTO for new workflows[/blue]")
+    elif 'off' in command.lower():
+        console.print("[yellow]🎮 Autopilot set to HUMAN CONTROL for new workflows[/yellow]")
+    else:
+        console.print("[red]Invalid autopilot command. Use 'on', 'smart', or 'off'[/red]")
+
+
+async def display_intelligence_result(result, workflow_state):
+    """Display the results of an Intelligence Layer workflow."""
+    console.print(f"\n[bold green]🎉 Workflow Completed: {result.workflow_id}[/bold green]")
+    
+    # Show execution summary
+    if result.execution_summary:
+        console.print(f"\n[bold yellow]📊 Execution Summary:[/bold yellow]")
+        summary = result.execution_summary
+        console.print(f"   Total steps: {summary.get('total_steps', 0)}")
+        console.print(f"   Human decisions: {summary.get('human_decisions', 0)}")
+        console.print(f"   Duration: {summary.get('duration_seconds', 0):.1f} seconds")
+        console.print(f"   Autopilot mode: {summary.get('autopilot_mode', 'unknown')}")
+    
+    # Show final outputs
+    if result.final_outputs:
+        console.print(f"\n[bold yellow]🎯 Key Results:[/bold yellow]")
+        for key, value in result.final_outputs.items():
+            if isinstance(value, (str, int, float)):
+                console.print(f"   {key.replace('_', ' ').title()}: {value}")
+            elif isinstance(value, list) and len(value) > 0:
+                console.print(f"   {key.replace('_', ' ').title()}: {len(value)} items")
+    
+    # Show performance metrics
+    if result.performance_metrics:
+        console.print(f"\n[bold yellow]⚡ Performance:[/bold yellow]")
+        metrics = result.performance_metrics
+        console.print(f"   Success rate: {metrics.get('success_rate', 0):.1%}")
+        console.print(f"   Efficiency score: {metrics.get('efficiency_score', 0):.1%}")
+    
+    # Show human interaction summary
+    if result.human_interaction_summary:
+        console.print(f"\n[bold yellow]👥 Human Interaction:[/bold yellow]")
+        interaction = result.human_interaction_summary
+        console.print(f"   Decision points: {interaction.get('decision_count', 0)}")
+        if interaction.get('last_interaction'):
+            console.print(f"   Last interaction: {interaction['last_interaction']}")
+
+
+async def is_workflow_continuation_command(user_input: str, current_workflow_id: str, workflow_brain: WorkflowBrain) -> bool:
+    """Check if user input is a workflow continuation command."""
+    if not current_workflow_id or current_workflow_id not in workflow_brain.active_workflows:
+        return False
+    
+    # Keywords that suggest workflow continuation
+    continuation_keywords = [
+        "step", "next", "continue", "proceed", "do", "run", "execute",
+        "option", "choice", "select", "pick", "take", "go"
+    ]
+    
+    # Number patterns (step 2, option 1, etc.)
+    import re
+    has_step_number = bool(re.search(r'\b(?:step|option|choice)\s*\d+\b', user_input.lower()))
+    has_standalone_number = bool(re.search(r'^\s*\d+\s*$', user_input.strip()))
+    has_continuation_keyword = any(keyword in user_input.lower() for keyword in continuation_keywords)
+    
+    return has_step_number or has_standalone_number or (has_continuation_keyword and len(user_input.split()) <= 4)
+
+
+async def handle_workflow_continuation(user_input: str, current_workflow_id: str, workflow_brain: WorkflowBrain, active_workflows: dict):
+    """Handle workflow continuation commands."""
+    workflow_state = workflow_brain.active_workflows[current_workflow_id]
+    
+    console.print(f"\n[bold blue]🔄 Continuing workflow: {workflow_state.workflow_title}[/bold blue]")
+    
+    # Parse the continuation command
+    import re
+    
+    # Check for step/option numbers
+    step_match = re.search(r'(?:step|option|choice)\s*(\d+)', user_input.lower())
+    number_match = re.search(r'^\s*(\d+)\s*$', user_input.strip())
+    
+    if step_match or number_match:
+        # User specified a specific step/option number
+        step_num = int((step_match or number_match).group(1))
+        console.print(f"   📋 Executing step {step_num}...")
+        
+        # Continue workflow execution
+        try:
+            result = await workflow_brain.execute_workflow(current_workflow_id)
+            await display_intelligence_result(result, workflow_state)
+            
+            # Update session tracking
+            active_workflows[current_workflow_id]['last_activity'] = datetime.now()
+            active_workflows[current_workflow_id]['status'] = result.status.value
+            
+        except Exception as e:
+            console.print(f"[red]Error continuing workflow: {str(e)}[/red]")
+    
+    else:
+        # General continuation command
+        console.print(f"   🚀 Continuing with next step...")
+        
+        try:
+            result = await workflow_brain.execute_workflow(current_workflow_id)
+            await display_intelligence_result(result, workflow_state)
+            
+            # Update session tracking
+            active_workflows[current_workflow_id]['last_activity'] = datetime.now()
+            active_workflows[current_workflow_id]['status'] = result.status.value
+            
+        except Exception as e:
+            console.print(f"[red]Error continuing workflow: {str(e)}[/red]")
+
+
+async def continue_workflow(workflow_brain: WorkflowBrain, workflow_id: str, active_workflows: dict):
+    """Continue an existing workflow."""
+    try:
+        console.print(f"\n[bold blue]🔄 Resuming workflow: {workflow_id}[/bold blue]")
+        
+        result = await workflow_brain.execute_workflow(workflow_id)
+        
+        workflow_state = workflow_brain.active_workflows[workflow_id]
+        await display_intelligence_result(result, workflow_state)
+        
+        # Update session tracking
+        active_workflows[workflow_id]['last_activity'] = datetime.now()
+        active_workflows[workflow_id]['status'] = result.status.value
+        
+    except Exception as e:
+        console.print(f"[red]Error continuing workflow: {str(e)}[/red]")
 
 
 async def chat_interface():
@@ -1688,6 +2057,86 @@ async def display_jarvis_result(result: Dict[str, Any]):
         console.print()
 
 
+async def display_market_research_result(result: Dict[str, Any]):
+    """Display comprehensive market research analysis results."""
+    if result.get("status") == "error":
+        console.print(f"[red]❌ Market research failed: {result.get('error', 'Unknown error')}[/red]")
+        return
+    
+    if result.get("status") != "completed":
+        console.print(f"[yellow]⚠️ Market research status: {result.get('status', 'unknown')}[/yellow]")
+        return
+    
+    research_data = result.get("result", {})
+    if not research_data:
+        console.print("[yellow]⚠️ No market research data available[/yellow]")
+        return
+    
+    # Check if research was successful
+    if not research_data.get("market_research_success"):
+        error_msg = research_data.get("market_research_error", "Unknown error")
+        console.print(f"[red]❌ Market research failed: {error_msg}[/red]")
+        return
+    
+    # Display executive summary
+    console.print("[bold green]📊 MARKET RESEARCH ANALYSIS COMPLETE[/bold green]\n")
+    
+    # Key metrics at the top
+    opportunity_score = research_data.get("market_opportunity_score", 0)
+    market_size = research_data.get("market_size", "Not available")
+    competitors_count = len(research_data.get("key_competitors", []))
+    
+    console.print(f"[bold]🎯 Market Opportunity Score:[/bold] [bold green]{opportunity_score}/100[/bold green]")
+    console.print(f"[bold]💰 Market Size:[/bold] {market_size}")
+    console.print(f"[bold]🏢 Key Competitors Identified:[/bold] {competitors_count}")
+    
+    # Display key findings
+    key_findings = research_data.get("key_findings", [])
+    if key_findings:
+        console.print(f"\n[bold]🔍 KEY FINDINGS:[/bold]")
+        for i, finding in enumerate(key_findings[:3], 1):
+            console.print(f"   {i}. {finding}")
+    
+    # Display competitors
+    key_competitors = research_data.get("key_competitors", [])
+    if key_competitors:
+        console.print(f"\n[bold]🏢 TOP COMPETITORS:[/bold]")
+        for i, competitor in enumerate(key_competitors[:5], 1):
+            # Handle both string and dict formats
+            if isinstance(competitor, str):
+                console.print(f"   {i}. {competitor}")
+            else:
+                console.print(f"   {i}. {competitor}")
+    
+    # Display market trends
+    market_trends = research_data.get("market_trends", [])
+    if market_trends:
+        console.print(f"\n[bold]📈 MARKET TRENDS:[/bold]")
+        for i, trend in enumerate(market_trends[:3], 1):
+            # Clean up trend text
+            clean_trend = str(trend).strip()
+            if len(clean_trend) > 5:  # Skip very short or empty trends
+                console.print(f"   {i}. {clean_trend}")
+    
+    # Display target personas  
+    target_personas = research_data.get("target_personas", [])
+    if target_personas:
+        console.print(f"\n[bold]👥 TARGET PERSONAS:[/bold]")
+        for i, persona in enumerate(target_personas[:3], 1):
+            # Handle both string and dict formats
+            clean_persona = str(persona).strip()
+            if len(clean_persona) > 5:  # Skip very short or empty personas
+                console.print(f"   {i}. {clean_persona}")
+    
+    # Show full research availability
+    research_result = research_data.get("market_research_result")
+    if research_result:
+        console.print(f"\n[dim]📋 Comprehensive analysis includes: market landscape, competitive intelligence, customer insights, trend analysis, and strategic recommendations[/dim]")
+        console.print(f"[dim]📁 Full report saved to market research reports directory[/dim]")
+    
+    console.print(f"\n[bold green]✅ Market research completed successfully![/bold green]")
+
+
 async def display_universal_result(result: Dict[str, Any]):
     """Display Universal Orchestrator result with routing information."""
     if result.get("status") == "error":
@@ -1705,6 +2154,7 @@ async def display_universal_result(result: Dict[str, Any]):
         # Map orchestrator types to display names and emojis
         orchestrator_display = {
             "branding": ("🎨 Branding Specialist", "magenta"),
+            "market_research": ("📊 Market Research", "green"),
             "jarvis_business": ("🧠 Business Strategy", "blue"),
             "heyjarvis_technical": ("⚙️ Technical Automation", "cyan")
         }
@@ -1723,6 +2173,8 @@ async def display_universal_result(result: Dict[str, Any]):
     # Route to appropriate display function based on orchestrator type
     if routing_info.get("orchestrator") == "branding":
         await display_branding_result(orchestrator_response)
+    elif routing_info.get("orchestrator") == "market_research":
+        await display_market_research_result(orchestrator_response)
     elif routing_info.get("orchestrator") == "jarvis_business":
         await display_jarvis_result(orchestrator_response)
     else:
@@ -2153,6 +2605,629 @@ async def business_demo_mode(jarvis: Jarvis, session_id: str):
     ))
 
 
+async def concurrent_mode():
+    """Concurrent persistent agent mode with enhanced capabilities."""
+    console.print("[bold cyan]🚀 Concurrent Persistent Agent Mode[/bold cyan]")
+    console.print("[dim]Enhanced Intelligence Layer with concurrent multi-agent execution[/dim]\n")
+    
+    try:
+        # Initialize persistent system
+        persistent_system = create_development_persistent_system()
+        
+        with console.status("[bold cyan]Initializing persistent agent system...") as status:
+            status.update("[cyan]Starting message bus...")
+            await asyncio.sleep(1)
+            
+            status.update("[cyan]Initializing agent pool...")
+            await asyncio.sleep(1)
+            
+            status.update("[cyan]Starting persistent agents...")
+            await persistent_system.start()
+            
+            status.update("[cyan]System ready!")
+            await asyncio.sleep(0.5)
+        
+        console.print("✅ [green]Persistent system started successfully![/green]")
+        
+        # Initialize enhanced workflow brain
+        config = {
+            'anthropic_api_key': os.getenv('ANTHROPIC_API_KEY'),
+            'redis_url': os.getenv('REDIS_URL', 'redis://localhost:6379'),
+            'max_retries': 3,
+            'enable_optimization': True
+        }
+        
+        enhanced_brain = EnhancedWorkflowBrain(config, persistent_system)
+        await enhanced_brain.initialize_orchestration()
+        
+        # Initialize advanced features
+        template_manager = WorkflowTemplateManager()
+        analytics_engine = PerformanceAnalyticsEngine()
+        
+        # Initialize intelligent workflow manager
+        workflow_manager = IntelligentWorkflowManager(enhanced_brain, config)
+        
+        console.print("🧠 [green]Enhanced WorkflowBrain initialized![/green]")
+        console.print("📊 [green]Advanced analytics enabled![/green]")
+        console.print("🤖 [green]Intelligent Workflow Manager ready![/green]\n")
+        
+        # Display system status
+        await _display_system_status(persistent_system, enhanced_brain, analytics_engine)
+        
+        # Main interaction loop with multi-prompt support
+        session_id = str(uuid.uuid4())[:8]
+        active_workflows: Dict[str, asyncio.Task] = {}
+        workflow_context: Dict[str, Any] = {}
+        
+        console.print(f"[dim]Session ID: {session_id}[/dim]")
+        console.print("[dim]💡 Commands: 'status', 'multi', 'suggest', 'analytics', 'health', or describe your business goal[/dim]")
+        console.print("[dim]💡 Multi-prompt mode: Use 'multi' then enter multiple prompts (one per line, empty line to execute)[/dim]\n")
+        
+        while True:
+            try:
+                try:
+                    user_input = console.input("[bold cyan]You:[/bold cyan] ").strip()
+                except EOFError:
+                    # Handle EOF gracefully - exit the loop
+                    console.print("\n[yellow]EOF detected, exiting...[/yellow]")
+                    break
+                
+                if not user_input:
+                    continue
+                
+                # Handle exit
+                if user_input.lower() in ['exit', 'quit']:
+                    console.print("[yellow]Shutting down concurrent system...[/yellow]")
+                    # Cancel all active workflows
+                    for workflow_id, task in active_workflows.items():
+                        task.cancel()
+                        console.print(f"[yellow]Cancelled workflow {workflow_id}[/yellow]")
+                    break
+                
+                # Handle system commands
+                elif user_input.lower() == 'status':
+                    await _display_system_status(persistent_system, enhanced_brain, analytics_engine)
+                    await _display_active_workflows(active_workflows)
+                    continue
+                    
+                elif user_input.lower() == 'templates':
+                    await _display_workflow_templates(template_manager)
+                    continue
+                    
+                elif user_input.lower() == 'analytics':
+                    await _display_analytics_dashboard(analytics_engine, enhanced_brain)
+                    continue
+                    
+                elif user_input.lower() == 'health':
+                    await _display_health_dashboard(persistent_system)
+                    continue
+                
+                # Handle multi-prompt mode
+                elif user_input.lower() == 'multi':
+                    prompts = await _collect_multi_prompts()
+                    if prompts:
+                        await _execute_multi_prompts(
+                            prompts, enhanced_brain, template_manager, analytics_engine,
+                            workflow_manager, session_id, active_workflows, workflow_context
+                        )
+                    continue
+                
+                # Handle intelligent suggestions
+                elif user_input.lower() == 'suggest':
+                    suggestions = await workflow_manager.suggest_next_workflows(workflow_context)
+                    selected_prompt = await _display_workflow_suggestions(suggestions, workflow_manager)
+                    if selected_prompt:
+                        # Execute the selected suggestion as a new workflow
+                        await _execute_single_workflow(
+                            selected_prompt, enhanced_brain, template_manager, analytics_engine,
+                            workflow_manager, session_id, active_workflows, workflow_context
+                        )
+                    continue
+                    
+                elif user_input.lower().startswith('cancel'):
+                    workflow_id = user_input.split()[-1] if len(user_input.split()) > 1 else None
+                    await _cancel_workflow(workflow_id, active_workflows)
+                    continue
+                
+                # Process single workflow request
+                await _execute_single_workflow(
+                    user_input, enhanced_brain, template_manager, analytics_engine,
+                    workflow_manager, session_id, active_workflows, workflow_context
+                )
+                
+            except KeyboardInterrupt:
+                console.print(f"\n[yellow]Interrupting active workflows...[/yellow]")
+                for workflow_id, task in active_workflows.items():
+                    task.cancel()
+                break
+            except Exception as e:
+                console.print(f"[red]Error:[/red] {e}")
+                logger.error(f"Error in concurrent mode: {e}", exc_info=True)
+    
+    except Exception as e:
+        console.print(f"[red]Failed to start concurrent mode:[/red] {e}")
+        logger.error(f"Concurrent mode startup failed: {e}", exc_info=True)
+    
+    finally:
+        # Cleanup
+        try:
+            if 'persistent_system' in locals():
+                await persistent_system.stop()
+            console.print("[green]Concurrent system shutdown complete.[/green]")
+        except Exception as e:
+            console.print(f"[red]Error during shutdown:[/red] {e}")
+
+
+async def _collect_multi_prompts() -> List[str]:
+    """Collect multiple prompts from the user."""
+    console.print("[bold cyan]Multi-Prompt Mode:[/bold cyan] Enter multiple prompts (one per line)")
+    console.print("[dim]Press Enter on empty line to execute all prompts concurrently[/dim]\n")
+    
+    prompts = []
+    while True:
+        prompt = console.input(f"[cyan]Prompt {len(prompts) + 1}:[/cyan] ").strip()
+        if not prompt:
+            break
+        prompts.append(prompt)
+    
+    if prompts:
+        console.print(f"\n[green]Collected {len(prompts)} prompts for concurrent execution![/green]")
+    
+    return prompts
+
+
+async def _execute_multi_prompts(
+    prompts: List[str],
+    enhanced_brain,
+    template_manager,
+    analytics_engine,
+    workflow_manager,
+    session_id: str,
+    active_workflows: Dict[str, asyncio.Task],
+    workflow_context: Dict[str, Any]
+):
+    """Execute multiple prompts concurrently."""
+    console.print(f"[bold cyan]🚀 Executing {len(prompts)} workflows concurrently...[/bold cyan]\n")
+    
+    # Create tasks for all prompts
+    tasks = []
+    for i, prompt in enumerate(prompts):
+        task = asyncio.create_task(
+            _execute_workflow_with_tracking(
+                prompt, enhanced_brain, template_manager, analytics_engine,
+                workflow_manager, session_id, active_workflows, workflow_context, i + 1
+            )
+        )
+        tasks.append(task)
+    
+    # Wait for all workflows to complete
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # Display completion summary
+    successful = sum(1 for r in results if not isinstance(r, Exception))
+    failed = len(results) - successful
+    
+    console.print(f"\n[bold green]Multi-Prompt Execution Complete![/bold green]")
+    console.print(f"✅ Successful: {successful}")
+    if failed > 0:
+        console.print(f"❌ Failed: {failed}")
+    
+    # Generate intelligent suggestions based on results
+    await _generate_follow_up_suggestions(
+        workflow_manager, workflow_context, results,
+        enhanced_brain, template_manager, analytics_engine, session_id, active_workflows
+    )
+
+
+async def _execute_single_workflow(
+    user_input: str,
+    enhanced_brain,
+    template_manager,
+    analytics_engine,
+    workflow_manager,
+    session_id: str,
+    active_workflows: Dict[str, asyncio.Task],
+    workflow_context: Dict[str, Any]
+):
+    """Execute a single workflow."""
+    await _execute_workflow_with_tracking(
+        user_input, enhanced_brain, template_manager, analytics_engine,
+        workflow_manager, session_id, active_workflows, workflow_context, 1
+    )
+
+
+async def _execute_workflow_with_tracking(
+    user_input: str,
+    enhanced_brain,
+    template_manager,
+    analytics_engine,
+    workflow_manager,
+    session_id: str,
+    active_workflows: Dict[str, asyncio.Task],
+    workflow_context: Dict[str, Any],
+    prompt_number: int = 1
+):
+    """Execute a workflow with full tracking and context management."""
+    prefix = f"[{prompt_number}] " if prompt_number > 1 else ""
+    
+    try:
+        console.print(f"\n{prefix}[bold cyan]🧠 Enhanced WorkflowBrain:[/bold cyan] Analyzing your request...\n")
+        
+        # Determine workflow type and recommend template
+        workflow_type = _infer_workflow_type(user_input)
+        recommended_template = await template_manager.recommend_template(
+            workflow_type=workflow_type,
+            user_requirements={'max_duration': 3600},  # 1 hour
+            complexity_preference='medium'
+        )
+        
+        if recommended_template:
+            console.print(f"{prefix}[blue]💡 Recommended template:[/blue] {recommended_template.name}")
+            console.print(f"{prefix}[dim]   Estimated duration: {recommended_template.estimated_duration // 60} minutes[/dim]")
+            console.print(f"{prefix}[dim]   Complexity: {recommended_template.complexity_score:.1f}/10[/dim]\n")
+        
+        # Create workflow
+        workflow_id = await enhanced_brain.create_workflow(
+            user_id="concurrent_user",
+            session_id=session_id,
+            workflow_type=workflow_type,
+            initial_request=user_input
+        )
+        
+        console.print(f"{prefix}[green]Created workflow:[/green] {workflow_id}")
+        
+        # Execute with concurrent capabilities
+        console.print(f"{prefix}[bold cyan]Executing with concurrent persistent agents...[/bold cyan]")
+        
+        # Start execution in background
+        execution_task = asyncio.create_task(
+            enhanced_brain.execute_workflow_enhanced(
+                workflow_id=workflow_id,
+                use_concurrent_execution=True,
+                autopilot_mode=AutoPilotMode.SMART_AUTO
+            )
+        )
+        
+        # Track active workflow
+        active_workflows[workflow_id] = execution_task
+        
+        # Monitor progress
+        await _monitor_workflow_execution(enhanced_brain, workflow_id, execution_task, prefix)
+        
+        # Get result and update context
+        result = await execution_task
+        workflow_context[workflow_id] = {
+            'request': user_input,
+            'type': workflow_type,
+            'result': result,
+            'timestamp': datetime.utcnow(),
+            'success': result.status == WorkflowStatus.COMPLETED
+        }
+        
+        # Update template metrics if used
+        if recommended_template:
+            try:
+                success = result.status == WorkflowStatus.COMPLETED
+                duration = result.execution_summary.get('total_execution_time_seconds', 0)
+                template_manager.update_template_metrics(
+                    recommended_template.template_id,
+                    success,
+                    duration
+                )
+            except:
+                pass  # Don't fail on metrics update
+        
+        # Remove from active workflows
+        active_workflows.pop(workflow_id, None)
+        
+        console.print(f"{prefix}[green]✅ Workflow {workflow_id} completed![/green]\n")
+        
+        return result
+        
+    except Exception as e:
+        console.print(f"{prefix}[red]❌ Workflow failed:[/red] {e}")
+        active_workflows.pop(workflow_id, None) if 'workflow_id' in locals() else None
+        raise
+
+
+async def _display_active_workflows(active_workflows: Dict[str, asyncio.Task]):
+    """Display currently active workflows."""
+    if not active_workflows:
+        console.print("[dim]No active workflows[/dim]")
+        return
+    
+    console.print(f"\n[bold cyan]Active Workflows ({len(active_workflows)}):[/bold cyan]")
+    for workflow_id, task in active_workflows.items():
+        status = "Running" if not task.done() else "Completed"
+        console.print(f"  • {workflow_id}: [cyan]{status}[/cyan]")
+
+
+async def _cancel_workflow(workflow_id: Optional[str], active_workflows: Dict[str, asyncio.Task]):
+    """Cancel a specific workflow or all workflows."""
+    if not workflow_id:
+        # Cancel all
+        for wf_id, task in active_workflows.items():
+            task.cancel()
+            console.print(f"[yellow]Cancelled workflow {wf_id}[/yellow]")
+        active_workflows.clear()
+    elif workflow_id in active_workflows:
+        active_workflows[workflow_id].cancel()
+        console.print(f"[yellow]Cancelled workflow {workflow_id}[/yellow]")
+        active_workflows.pop(workflow_id)
+    else:
+        console.print(f"[red]Workflow {workflow_id} not found[/red]")
+
+
+async def _generate_follow_up_suggestions(
+    workflow_manager,
+    workflow_context: Dict[str, Any],
+    results: List[Any],
+    enhanced_brain=None,
+    template_manager=None,
+    analytics_engine=None,
+    session_id=None,
+    active_workflows=None
+):
+    """Generate intelligent follow-up suggestions based on completed workflows."""
+    if not workflow_context:
+        return
+    
+    console.print("\n[bold blue]🤖 Intelligent Follow-up Suggestions:[/bold blue]")
+    
+    try:
+        suggestions = await workflow_manager.suggest_next_workflows(workflow_context)
+        selected_prompt = await _display_workflow_suggestions(suggestions, workflow_manager)
+        
+        if selected_prompt and all([enhanced_brain, template_manager, analytics_engine, session_id, active_workflows is not None]):
+            # Execute the selected suggestion as a new workflow
+            console.print("\n[bold cyan]🚀 Executing selected follow-up workflow...[/bold cyan]")
+            await _execute_single_workflow(
+                selected_prompt, enhanced_brain, template_manager, analytics_engine,
+                workflow_manager, session_id, active_workflows, workflow_context
+            )
+            
+    except Exception as e:
+        console.print(f"[red]Error generating suggestions:[/red] {e}")
+
+
+async def _display_workflow_suggestions(suggestions: List[Dict[str, Any]], workflow_manager):
+    """Display intelligent workflow suggestions to the user."""
+    if not suggestions:
+        console.print("[dim]No suggestions available at this time[/dim]")
+        return None
+    
+    console.print("[bold cyan]Suggested Next Workflows:[/bold cyan]")
+    
+    for i, suggestion in enumerate(suggestions[:5], 1):  # Show top 5
+        confidence = suggestion.get('confidence', 0)
+        reason = suggestion.get('reason', 'No reason provided')
+        confidence_color = "green" if confidence > 0.7 else "yellow" if confidence > 0.5 else "red"
+        
+        console.print(f"\n[cyan]{i}.[/cyan] [bold]{suggestion['title']}[/bold]")
+        console.print(f"   [dim]Type: {suggestion.get('workflow_type', 'unknown')}[/dim]")
+        console.print(f"   [dim]Confidence: [{confidence_color}]{confidence:.1%}[/{confidence_color}][/dim]")
+        console.print(f"   [dim]Reason: {reason}[/dim]")
+        if 'business_value' in suggestion:
+            console.print(f"   [blue]Business Value:[/blue] {suggestion['business_value']}")
+        console.print(f"   [green]Prompt:[/green] \"{suggestion['suggested_prompt']}\"")
+    
+    # Ask if user wants to execute any suggestions
+    choice = console.input(f"\n[cyan]Execute suggestion (1-{len(suggestions[:5])}) or press Enter to continue:[/cyan] ").strip()
+    
+    if choice.isdigit() and 1 <= int(choice) <= len(suggestions[:5]):
+        selected = suggestions[int(choice) - 1]
+        console.print(f"[green]✓ Executing suggestion:[/green] {selected['suggested_prompt']}")
+        return selected['suggested_prompt']
+    
+    return None
+
+
+async def _display_system_status(persistent_system: PersistentSystem, enhanced_brain, analytics_engine):
+    """Display comprehensive system status."""
+    
+    # Get system health
+    health = await persistent_system.get_system_health()
+    
+    # Create status table
+    status_table = Table(title="🚀 Concurrent System Status")
+    status_table.add_column("Component", style="cyan", no_wrap=True)
+    status_table.add_column("Status", style="green")
+    status_table.add_column("Metrics", style="white")
+    
+    # System overview
+    uptime = round(health.get('uptime_seconds', 0) / 60, 1)
+    status_table.add_row(
+        "System",
+        "🟢 Running" if health['system_running'] else "🔴 Stopped",
+        f"Uptime: {uptime} min"
+    )
+    
+    # Components
+    components = health.get('components', {})
+    
+    if 'agent_pool' in components:
+        pool_info = components['agent_pool']
+        status_table.add_row(
+            "Agent Pool",
+            f"🟢 {pool_info['status'].title()}",
+            f"{pool_info['healthy_agents']}/{pool_info['total_agents']} healthy"
+        )
+    
+    if 'message_bus' in components:
+        bus_info = components['message_bus']
+        status_table.add_row(
+            "Message Bus",
+            "🟢 Connected" if bus_info.get('connected') else "🔴 Disconnected",
+            f"{bus_info.get('messages_published', 0)} messages sent"
+        )
+    
+    if 'orchestrator' in components:
+        orch_info = components['orchestrator']
+        status_table.add_row(
+            "Orchestrator",
+            "🟢 Active",
+            f"{orch_info.get('active_batches', 0)} active batches"
+        )
+    
+    # Enhanced features
+    status_table.add_row(
+        "Enhanced Brain",
+        "🟢 Active",
+        "Concurrent execution enabled"
+    )
+    
+    status_table.add_row(
+        "Analytics",
+        "🟢 Active",
+        "Performance monitoring enabled"
+    )
+    
+    console.print(status_table)
+
+
+async def _display_workflow_templates(template_manager: WorkflowTemplateManager):
+    """Display available workflow templates."""
+    
+    templates_table = Table(title="📋 Available Workflow Templates")
+    templates_table.add_column("Template", style="cyan")
+    templates_table.add_column("Type", style="yellow")
+    templates_table.add_column("Duration", style="green")
+    templates_table.add_column("Complexity", style="blue")
+    templates_table.add_column("Usage", style="white")
+    
+    for template in template_manager.templates.values():
+        duration_min = template.estimated_duration // 60
+        templates_table.add_row(
+            template.name,
+            template.workflow_type,
+            f"{duration_min} min",
+            f"{template.complexity_score:.1f}/10",
+            f"{template.usage_count} times"
+        )
+    
+    console.print(templates_table)
+    
+    # Display analytics
+    analytics = template_manager.get_template_analytics()
+    if analytics:
+        console.print(f"\n[blue]Template Analytics:[/blue]")
+        console.print(f"  Most popular: {analytics.get('most_popular_template', 'N/A')}")
+        console.print(f"  Average complexity: {analytics.get('average_complexity', 0):.1f}/10")
+
+
+async def _display_analytics_dashboard(analytics_engine: PerformanceAnalyticsEngine, enhanced_brain):
+    """Display analytics dashboard."""
+    
+    # Get performance summary
+    performance_summary = enhanced_brain.get_system_performance_summary()
+    
+    console.print(Panel.fit(
+        f"[bold blue]System Performance Summary[/bold blue]\n\n"
+        f"[green]Workflows Processed:[/green] {performance_summary['workflow_metrics']['total_processed']}\n"
+        f"[green]Success Rate:[/green] {performance_summary['workflow_metrics']['success_rate']:.1f}%\n"
+        f"[green]Avg Execution Time:[/green] {performance_summary['workflow_metrics']['average_execution_time']:.1f}s\n"
+        f"[green]Avg Tasks per Workflow:[/green] {performance_summary['workflow_metrics']['average_tasks_per_workflow']:.1f}\n\n"
+        f"[cyan]Concurrent Execution:[/cyan]\n"
+        f"  • Workflows routed: {performance_summary['concurrent_execution_stats'].get('workflows_processed', 0)}\n"
+        f"  • Tasks distributed: {performance_summary['concurrent_execution_stats'].get('tasks_routed', 0)}\n"
+        f"  • Active workflows: {performance_summary['concurrent_execution_stats'].get('active_workflows', 0)}",
+        title="📊 Analytics Dashboard"
+    ))
+
+
+async def _display_health_dashboard(persistent_system: PersistentSystem):
+    """Display detailed health dashboard."""
+    
+    health = await persistent_system.get_system_health()
+    
+    console.print(Panel.fit(
+        f"[bold green]System Health Dashboard[/bold green]\n\n"
+        f"[white]Uptime:[/white] {health.get('uptime_seconds', 0) // 60} minutes\n"
+        f"[white]System Status:[/white] {'🟢 Healthy' if health['system_running'] else '🔴 Unhealthy'}\n\n"
+        f"[cyan]Component Health:[/cyan]\n" +
+        "\n".join([
+            f"  • {component}: {'🟢' if info.get('status') == 'running' else '🟡'} {info.get('status', 'unknown')}"
+            for component, info in health.get('components', {}).items()
+        ]) +
+        f"\n\n[yellow]System Statistics:[/yellow]\n" +
+        "\n".join([
+            f"  • {key}: {value}"
+            for key, value in health.get('system_statistics', {}).items()
+        ]),
+        title="🏥 Health Dashboard"
+    ))
+
+
+def _infer_workflow_type(user_input: str) -> str:
+    """Infer workflow type from user input."""
+    
+    input_lower = user_input.lower()
+    
+    if any(word in input_lower for word in ['business', 'company', 'startup', 'launch']):
+        return 'business_creation'
+    elif any(word in input_lower for word in ['market', 'research', 'analysis', 'competitor']):
+        return 'market_analysis'
+    elif any(word in input_lower for word in ['brand', 'logo', 'design', 'identity']):
+        return 'branding'
+    else:
+        return 'general'
+
+
+async def _monitor_workflow_execution(enhanced_brain, workflow_id: str, execution_task: asyncio.Task, prefix: str = ""):
+    """Monitor workflow execution with progress updates."""
+    
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        console=console,
+        transient=True
+    ) as progress:
+        
+        task = progress.add_task(f"Executing workflow... {prefix}", total=100)
+        
+        while not execution_task.done():
+            try:
+                # Get progress
+                workflow_progress = await enhanced_brain.get_enhanced_workflow_status(workflow_id)
+                
+                if workflow_progress and 'concurrent_execution' in workflow_progress:
+                    concurrent_info = workflow_progress['concurrent_execution']
+                    if concurrent_info:
+                        progress_pct = concurrent_info.get('progress_percentage', 0)
+                        status = concurrent_info.get('status', 'unknown')
+                        
+                        progress.update(task, completed=progress_pct, description=f"Status: {status} {prefix}")
+                
+                await asyncio.sleep(2)
+                
+            except Exception as e:
+                logger.debug(f"Error monitoring workflow: {e}")
+                await asyncio.sleep(2)
+        
+        progress.update(task, completed=100, description=f"Workflow completed! {prefix}")
+    
+    try:
+        result = await execution_task
+        
+        # Display results
+        console.print(f"\n[bold green]🎉 Workflow Completed![/bold green]")
+        console.print(f"Status: {result.status.value}")
+        console.print(f"Duration: {result.execution_summary.get('total_execution_time_seconds', 0):.1f} seconds")
+        
+        if result.final_outputs:
+            console.print(f"\n[bold blue]Results:[/bold blue]")
+            for key, value in result.final_outputs.items():
+                if isinstance(value, dict) and 'summary' in value:
+                    console.print(f"  • {key}: {value['summary']}")
+                else:
+                    console.print(f"  • {key}: Available")
+        
+    except Exception as e:
+        console.print(f"{prefix}[red]Workflow execution failed:[/red] {e}")
+
+
 def main():
     """Main entry point with argument parsing."""
     parser = argparse.ArgumentParser(description="HeyJarvis AI Agent Orchestrator")
@@ -2161,6 +3236,10 @@ def main():
                        help="Enable business-level orchestration with Jarvis")
     parser.add_argument("--branding", action="store_true",
                        help="Enable branding agent orchestration")
+    parser.add_argument("--intelligence", action="store_true",
+                       help="Enable Intelligence Layer with Human-in-the-Loop workflows")
+    parser.add_argument("--concurrent", action="store_true",
+                       help="Enable concurrent persistent agent system with enhanced capabilities")
     args = parser.parse_args()
     
     if args.demo:
@@ -2169,6 +3248,10 @@ def main():
         asyncio.run(jarvis_mode())
     elif args.branding:
         asyncio.run(branding_mode())
+    elif args.intelligence:
+        asyncio.run(intelligence_mode())
+    elif args.concurrent:
+        asyncio.run(concurrent_mode())
     else:
         asyncio.run(chat_interface())
 

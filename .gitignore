@@ -44,3 +44,7 @@ node_modules/
 generated_agents/
 agent_outputs/
 sandbox_*/ 
+market_research_reports/
+generated_logos/
+\\
+branding_reports/

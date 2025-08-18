@@ -8,6 +8,7 @@ This agent understands user intent about business ideas and generates:
 - Target customer analysis and pricing strategies
 """
 
+import asyncio
 import json
 import logging
 import re
@@ -22,6 +23,16 @@ from ai_engines.base_engine import AIEngineConfig
 from utils.user_response_parser import UserResponseParser, ApprovalIntent
 
 logger = logging.getLogger(__name__)
+
+
+class AgentExitException(Exception):
+    """Exception to exit the entire branding agent."""
+    pass
+
+
+class SystemExitException(Exception):
+    """Exception to exit the entire HeyJarvis system."""
+    pass
 
 
 class BrandingResult:
@@ -92,7 +103,8 @@ class BrandingAgent:
                 model="claude-3-5-sonnet-20241022",
                 max_tokens=2000,
                 temperature=0.8,  # Slightly creative for branding
-                enable_cache=True
+                enable_cache=False,  # CRITICAL FIX: Disable cache for creative work
+                timeout_seconds=300  # CRITICAL FIX: 5 minutes timeout - no rush for quality
             )
             
             self.ai_engine = AnthropicEngine(engine_config)
@@ -160,6 +172,28 @@ class BrandingAgent:
                 
                 self.logger.info(f"Branding generation completed: {branding_result.brand_name}")
             
+            return updated_state
+            
+        except AgentExitException as e:
+            self.logger.info(f"Branding agent exit requested: {e}")
+            # Return state with exit flag for orchestrator to handle
+            updated_state = state.copy()
+            updated_state.update({
+                "agent_exit_requested": True,
+                "exit_reason": "User requested to exit branding agent",
+                "branding_success": False
+            })
+            return updated_state
+            
+        except SystemExitException as e:
+            self.logger.info(f"System exit requested: {e}")
+            # Return state with system exit flag
+            updated_state = state.copy()  
+            updated_state.update({
+                "system_exit_requested": True,
+                "exit_reason": "User requested to quit entire system", 
+                "branding_success": False
+            })
             return updated_state
             
         except Exception as e:
@@ -582,24 +616,29 @@ Provide realistic, data-driven analysis based on current market conditions. Focu
         
         context = " | ".join(context_parts)
         
-        prompt = f"""
-You are a branding strategist and creative director.
+        # Add unique identifier to prevent any caching/similarity issues
+        import uuid
+        unique_id = str(uuid.uuid4())[:8]
+        
+        prompt = f"""[Generation ID: {unique_id}] You are a branding strategist and creative director.
 
 Business Context: {context}
 
-Your task is to create compelling branding assets for this business:
+Your task is to create compelling and UNIQUE branding assets for this business. Be creative and avoid common/overused names:
 
 1. **Brand Name**: Generate a unique, memorable brand name that:
    - Reflects the business purpose and values
    - Is easy to pronounce and remember
-   - Avoids generic or overused terms
+   - Avoids generic or overused terms (especially avoid names starting with 'Nexus', 'Nova', 'Neo')
    - Has potential for trademark registration
+   - Is creative and distinctive
 
 2. **Logo Design Prompt**: Create a detailed prompt for a logo designer that:
    - Describes the visual style and mood
    - Specifies key design elements
    - Includes color guidance
    - Is suitable for DALL·E, Midjourney, or human designers
+   - CRITICAL: Always end with "IMPORTANT: Spell the brand name exactly as: [BRAND_NAME]" to prevent spelling errors
 
 3. **Color Palette**: Suggest 3-5 colors in hex format that:
    - Complement the brand personality
@@ -614,7 +653,7 @@ Return your response in this exact JSON format:
   "color_palette": ["#HEX1", "#HEX2", "#HEX3", "#HEX4"]
 }}
 
-Ensure the response is valid JSON and all fields are properly filled.
+Ensure the response is valid JSON and all fields are properly filled. [Request ID: {unique_id}]
 """
         
         return prompt
@@ -700,29 +739,75 @@ Ensure the response is valid JSON and all fields are properly filled.
     
     async def _generate_fallback_branding(self, business_info: Dict[str, Any]) -> BrandingResult:
         """
-        Generate fallback branding when AI is not available.
+        Generate realistic mock branding when AI is not available (demo mode).
         
         Args:
             business_info: Dictionary containing business information
             
         Returns:
-            BrandingResult with fallback assets
+            BrandingResult with mock assets
         """
-        business_idea = business_info['business_idea']
-        product_type = business_info.get('product_type', 'product')
+        business_idea = business_info['business_idea'].lower()
+        product_type = business_info.get('product_type', 'business')
         
-        # Simple fallback brand name
-        words = business_idea.lower().split()
-        if len(words) >= 2:
-            brand_name = f"{words[0].capitalize()}{words[1].capitalize()}"
+        # Intelligent brand name generation based on business type
+        if 'coffee' in business_idea or 'cafe' in business_idea:
+            brand_names = ["Brew Haven", "Coffee Craft", "Roast & Co", "The Daily Grind", "Bean Dreams"]
+            color_palettes = [
+                ["#8B4513", "#D2691E", "#F5DEB3", "#FFFFFF"],
+                ["#6F4E37", "#CD853F", "#F4A460", "#FFF8DC"],
+                ["#3C2415", "#8B4513", "#D2B48C", "#F5F5DC"]
+            ]
+        elif 'bakery' in business_idea or 'pastry' in business_idea:
+            brand_names = ["Sweet Dreams", "Golden Crust", "Artisan Bake", "The Flour Mill", "Sunrise Bakery"]
+            color_palettes = [
+                ["#D2691E", "#F4A460", "#FFF8DC", "#8B4513"],
+                ["#CD853F", "#F5DEB3", "#FFFFFF", "#A0522D"],
+                ["#DAA520", "#F0E68C", "#FFFACD", "#B8860B"]
+            ]
+        elif 'tech' in business_idea or 'software' in business_idea or 'app' in business_idea:
+            brand_names = ["TechFlow", "InnovateLabs", "CodeCraft", "Digital Wave", "NextGen Solutions"]
+            color_palettes = [
+                ["#0066CC", "#00CCFF", "#FFFFFF", "#E6F3FF"],
+                ["#6633FF", "#9966FF", "#CCCCFF", "#F0F0FF"],
+                ["#FF6600", "#FF9933", "#FFCC99", "#FFF3E6"]
+            ]
+        elif 'restaurant' in business_idea or 'food' in business_idea:
+            brand_names = ["Savory Spot", "Fresh Plate", "Culinary Corner", "Taste Haven", "Fork & Flavor"]
+            color_palettes = [
+                ["#228B22", "#32CD32", "#98FB98", "#F0FFF0"],
+                ["#DC143C", "#FF6347", "#FFB6C1", "#FFF0F5"],
+                ["#FF8C00", "#FFD700", "#FFFFE0", "#FFF8DC"]
+            ]
         else:
-            brand_name = f"{words[0].capitalize()}Pro"
+            # Generic business names
+            words = business_idea.split()
+            if len(words) >= 2:
+                brand_names = [f"{words[0].capitalize()} {words[1].capitalize()}", f"{words[0].capitalize()}Co", f"Pro{words[1].capitalize()}"]
+            else:
+                brand_names = [f"{words[0].capitalize()} Pro", f"Elite {words[0].capitalize()}", f"{words[0].capitalize()} Solutions"]
+            color_palettes = [
+                ["#2C3E50", "#3498DB", "#E74C3C", "#F39C12"],
+                ["#8E44AD", "#9B59B6", "#BDC3C7", "#ECF0F1"],
+                ["#27AE60", "#2ECC71", "#F1C40F", "#E67E22"]
+            ]
         
-        # Fallback logo prompt
-        logo_prompt = f"Design a modern, professional logo for {brand_name}, a {product_type} company."
+        # Select random options for variety
+        import random
+        brand_name = random.choice(brand_names)
+        color_palette = random.choice(color_palettes)
         
-        # Fallback color palette
-        color_palette = ["#2C3E50", "#3498DB", "#E74C3C", "#F39C12"]
+        # Generate contextual logo prompt
+        if 'coffee' in business_idea:
+            logo_prompt = f"Modern coffee cup with steam rising, incorporating the text '{brand_name}' in elegant typography"
+        elif 'bakery' in business_idea:
+            logo_prompt = f"Artisanal bread or wheat symbol with warm colors, featuring '{brand_name}' in handcrafted font style"
+        elif 'tech' in business_idea:
+            logo_prompt = f"Clean, geometric design with tech elements like circuits or pixels, '{brand_name}' in modern sans-serif font"
+        elif 'restaurant' in business_idea:
+            logo_prompt = f"Elegant fork and knife or chef's hat symbol, '{brand_name}' in sophisticated serif typography"
+        else:
+            logo_prompt = f"Professional, minimalist logo design for '{brand_name}' representing {product_type} business"
         
         # Create branding data for interactive approval
         branding_data = {
@@ -773,11 +858,10 @@ Ensure the response is valid JSON and all fields are properly filled.
         from rich.prompt import Prompt
         
         console = Console()
-        max_attempts = 3
         current_attempt = 1
         current_prompt = logo_prompt
         
-        while current_attempt <= max_attempts:
+        while True:  # Infinite loop - user controls when to stop
             # Display the logo prompt for review
             console.print("\n" + "="*60)
             console.print("🎨 [bold blue]Logo Prompt Review[/bold blue]")
@@ -800,11 +884,30 @@ Ensure the response is valid JSON and all fields are properly filled.
             # Request user decision
             console.print("\n💡 [bold yellow]What would you like to do?[/bold yellow]")
             console.print("  • Type [green]'yes'[/green] to proceed with this prompt")
-            console.print("  • Type [red]'no'[/red] to skip logo generation")
-            console.print("  • Type [blue]'try again'[/blue] to generate a new prompt")
+            console.print("  • Type [red]'no' or 'skip'[/red] to skip logo generation entirely")
+            console.print("  • Type [blue]'try again' or 'redo'[/blue] to generate a new prompt")
+            console.print("\n🚪 [dim]Exit Commands:[/dim]")
+            console.print("  • [dim]'exit prompt'[/dim] → Use original prompt and continue")
+            console.print("  • [dim]'exit agent'[/dim] → Quit branding agent completely") 
+            console.print("  • [dim]'quit'[/dim] → Quit entire system")
             
             # Get user input
             user_response = Prompt.ask("\n[bold]Your decision", default="yes").strip()
+            
+            # Check for exit commands first
+            user_lower = user_response.lower().strip()
+            
+            if user_lower in ['exit prompt', 'exit']:
+                console.print("🚪 [dim]Exiting prompt approval - using original prompt[/dim]\n")
+                return logo_prompt
+                
+            elif user_lower in ['exit agent', 'quit agent']:
+                console.print("🚪 [yellow]Exiting branding agent completely[/yellow]\n")
+                raise AgentExitException("User requested to exit branding agent")
+                
+            elif user_lower in ['quit', 'quit system', 'exit system']:
+                console.print("🚪 [red]Quitting entire HeyJarvis system[/red]\n")
+                raise SystemExitException("User requested to quit entire system")
             
             # Parse the response
             decision = self.response_parser.parse_approval_response(user_response)
@@ -826,6 +929,8 @@ Ensure the response is valid JSON and all fields are properly filled.
                 # Generate a new prompt with variation
                 new_prompt = await self._regenerate_logo_prompt(business_info, branding_data, current_attempt)
                 current_prompt = new_prompt
+                # CRITICAL FIX: Update branding_data so next regeneration compares against current prompt
+                branding_data['logo_prompt'] = new_prompt
                 current_attempt += 1
                 continue
                 
@@ -834,14 +939,7 @@ Ensure the response is valid JSON and all fields are properly filled.
                 suggestion = self.response_parser.suggest_clarification(decision)
                 if suggestion:
                     console.print(f"❓ [yellow]{suggestion}[/yellow]\n")
-                current_attempt += 1
-                
-                if current_attempt > max_attempts:
-                    console.print("⚠️  [yellow]Max attempts reached. Using original prompt.[/yellow]\n")
-                    return logo_prompt
-        
-        # Fallback to original prompt
-        return logo_prompt
+                # Continue the loop - no timeout, user keeps trying
     
     async def _regenerate_logo_prompt(
         self, 
@@ -861,38 +959,70 @@ Ensure the response is valid JSON and all fields are properly filled.
             New logo prompt variation
         """
         if not self.ai_engine:
-            # Fallback variations without AI
-            variations = [
-                f"Create a minimalist logo for {branding_data.get('brand_name', 'the brand')} with clean lines and modern typography",
-                f"Design a creative logo for {branding_data.get('brand_name', 'the brand')} incorporating symbolic elements and bold colors",
-                f"Generate an elegant logo for {branding_data.get('brand_name', 'the brand')} with sophisticated styling and premium feel"
-            ]
-            return variations[attempt % len(variations)]
+            # No AI engine - inform user transparently
+            from rich.console import Console
+            console = Console()
+            console.print("❌ [red]AI engine not available - cannot generate new variations[/red]")
+            console.print("💡 [yellow]Please check AI configuration and try again[/yellow]")
+            return branding_data.get('logo_prompt', 'Design a professional logo')
         
-        # Use AI to generate a new variation
+        # Add unique context to prevent any caching/similarity issues
+        import uuid
+        unique_id = str(uuid.uuid4())[:8]
+        
+        variation_prompt = f"""[Generation ID: {unique_id}] Generate a completely different and creative logo design prompt for {branding_data.get('brand_name')} (a {business_info.get('business_idea')}). 
+
+Previous approach: {branding_data.get('logo_prompt')[:100]}...
+
+Create a new detailed logo prompt with a totally different creative style and approach. Use these colors: {', '.join(branding_data.get('color_palette', []))}.
+
+Be specific and creative - make it unique from the previous one.
+
+CRITICAL: Always end your logo prompt with "IMPORTANT: Spell the brand name exactly as: {branding_data.get('brand_name')}" to prevent spelling errors in generated logos.
+
+[Attempt: {attempt}]"""
+        
         try:
-            variation_prompt = f"""
-            Generate a different creative logo design prompt for this business:
+            self.logger.info(f"Starting AI regeneration call (attempt #{attempt}) with unique ID: {unique_id}")
             
-            Business: {business_info.get('business_idea', 'N/A')}
-            Brand Name: {branding_data.get('brand_name', 'N/A')}
-            Colors: {', '.join(branding_data.get('color_palette', []))}
-            
-            Previous prompt was: {branding_data.get('logo_prompt', 'N/A')}
-            
-            Create a new, different logo prompt that:
-            - Takes a different creative approach 
-            - Uses the same brand name and colors
-            - Offers a fresh perspective on the visual identity
-            - Is detailed and specific for logo generation
-            
-            Return only the new logo prompt, nothing else.
-            """
-            
+            # NO TIMEOUT - user requested infinite regeneration capability
+            # Let the AI take as long as it needs for quality results
             response = await self.ai_engine.generate(variation_prompt)
-            return response.content.strip()
+            
+            self.logger.info(f"AI regeneration call completed successfully")
+            new_prompt = response.content.strip()
+            
+            # Trust the LLM - minimal validation
+            if len(new_prompt) > 20:
+                return new_prompt
+            else:
+                self.logger.warning("AI returned very short response")
+                return branding_data.get('logo_prompt', 'Design a professional logo')
             
         except Exception as e:
-            self.logger.error(f"Error regenerating logo prompt: {e}")
-            # Fallback to simple variation
-            return f"Design an alternative logo concept for {branding_data.get('brand_name', 'the brand')} with a different creative approach" 
+            self.logger.error(f"AI regeneration failed: {e}")
+            from rich.console import Console
+            console = Console()
+            console.print(f"❌ [red]Failed to generate new prompt: {str(e)[:50]}...[/red]")
+            console.print("💡 [yellow]Continuing with original prompt[/yellow]")
+            return branding_data.get('logo_prompt', 'Design a professional logo')
+
+
+# Agent metadata for registration
+AGENT_METADATA = {
+    "name": "BrandingAgent",
+    "description": "AI-powered brand creation with interactive logo prompt approval",
+    "capabilities": ["brand_generation", "logo_prompts", "market_research", "interactive_approval"],
+    "inputs": ["business_idea", "user_request"],
+    "outputs": ["brand_name", "logo_prompt", "color_palette", "domain_suggestions"],
+    "interactive": True,
+    "exit_commands": {
+        "skip": "Skip logo generation entirely", 
+        "exit_prompt": "Use original prompt and continue",
+        "exit_agent": "Quit branding agent completely",
+        "quit": "Quit entire HeyJarvis system"
+    },
+    "exceptions": ["AgentExitException", "SystemExitException"],
+    "dependencies": ["anthropic", "rich", "utils.user_response_parser"],
+    "coordination": ["works_with_logo_generation_agent", "works_with_market_research_agent"]
+} 
