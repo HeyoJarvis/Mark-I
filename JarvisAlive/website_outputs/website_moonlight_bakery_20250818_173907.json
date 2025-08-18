@@ -1,0 +1,138 @@
+{
+  "generation_parameters": {
+    "brand_name": "Moonlight Bakery",
+    "business_idea": "Artisanal bakery specializing in organic sourdough breads and pastries",
+    "color_palette": [
+      "#2d1810",
+      "#d4a574",
+      "#f5f1eb"
+    ],
+    "target_audience": "health-conscious families and food enthusiasts",
+    "industry": "food and beverage"
+  },
+  "website_results": {
+    "sitemap": [
+      "Home",
+      "About",
+      "Services",
+      "Pricing",
+      "Contact"
+    ],
+    "website_structure": [
+      {
+        "page": "Home",
+        "purpose": "Convert visitors into leads",
+        "sections": [
+          {
+            "id": "hero",
+            "type": "hero_section",
+            "headline": "Welcome to Moonlight Bakery",
+            "subheadline": "Artisanal bakery specializing in organic sourdough breads and pastries",
+            "primary_cta": "Get Started",
+            "secondary_cta": "Learn More",
+            "background_style": "gradient"
+          },
+          {
+            "id": "features",
+            "type": "features_section",
+            "title": "Why Choose Us",
+            "items": [
+              {
+                "title": "Quality Service",
+                "description": "We deliver exceptional results",
+                "icon": "check_circle"
+              },
+              {
+                "title": "Expert Team",
+                "description": "Professional and experienced",
+                "icon": "users"
+              },
+              {
+                "title": "Customer Focus",
+                "description": "Your success is our priority",
+                "icon": "heart"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "homepage": {
+      "seo_title": "Moonlight Bakery - Professional Services",
+      "meta_description": "Discover Moonlight Bakery's professional services. Get started today.",
+      "hero": {
+        "headline": "Professional Solutions from Moonlight Bakery",
+        "subheadline": "We help businesses succeed with our expert services",
+        "primary_cta": "Get Started",
+        "secondary_cta": "Learn More"
+      },
+      "value_propositions": [
+        "Professional expertise",
+        "Reliable service",
+        "Customer satisfaction"
+      ],
+      "features": [
+        {
+          "title": "Expert Solutions",
+          "description": "Professional approach to your needs",
+          "benefit": "Better results for your business"
+        }
+      ],
+      "faq": [
+        {
+          "question": "How do you ensure quality?",
+          "answer": "We follow industry best practices and maintain high standards."
+        }
+      ]
+    },
+    "style_guide": {
+      "brand_name": "Moonlight Bakery",
+      "colors": [
+        "#2d1810",
+        "#d4a574",
+        "#f5f1eb"
+      ],
+      "typography": {
+        "primary_font": "Inter",
+        "secondary_font": "Inter",
+        "heading_style": "Bold, professional",
+        "body_style": "Clean, readable"
+      },
+      "tone_of_voice": {
+        "personality": "professional",
+        "writing_style": "Clear, trustworthy, and results-focused",
+        "key_messages": [
+          "Quality service",
+          "Customer success"
+        ]
+      },
+      "visual_style": {
+        "design_approach": "modern",
+        "imagery_style": "Professional business imagery",
+        "layout_principles": [
+          "Clean layout",
+          "Clear hierarchy"
+        ]
+      }
+    },
+    "seo_recommendations": {
+      "target_keywords": [
+        "moonlight bakery",
+        "professional services"
+      ],
+      "content_strategy": "Focus on service benefits and customer success",
+      "technical_recommendations": [
+        "Optimize page speed",
+        "Mobile responsive design"
+      ],
+      "local_seo": "Include location-based keywords if serving local market"
+    }
+  },
+  "metadata": {
+    "generated_at": "2025-08-18T17:39:07.003594",
+    "agent_version": "WebsiteGeneratorAgent_v1.0",
+    "ai_engine_used": false,
+    "total_pages": 5,
+    "generation_mode": "fallback"
+  }
+}

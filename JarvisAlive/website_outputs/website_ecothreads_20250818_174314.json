@@ -1,0 +1,159 @@
+{
+  "generation_parameters": {
+    "brand_name": "EcoThreads",
+    "business_idea": "Sustainable fashion brand using recycled materials, targeting environmentally conscious Gen Z consumers",
+    "target_audience": "Gen Z, environmentally conscious, fashion-forward",
+    "industry": "fashion and sustainability"
+  },
+  "website_results": {
+    "sitemap": [
+      "Home",
+      "About",
+      "Shop",
+      "Sustainability",
+      "Impact",
+      "Contact"
+    ],
+    "website_structure": [
+      {
+        "page": "Home",
+        "purpose": "Convert eco-conscious visitors into customers",
+        "sections": [
+          {
+            "id": "hero",
+            "type": "hero_section",
+            "headline": "Style That Doesn't Cost the Earth",
+            "subheadline": "Trendsetting fashion made from 100% recycled materials, for the generation that cares",
+            "primary_cta": "Shop New Arrivals",
+            "secondary_cta": "Our Impact Story",
+            "background_style": "video|recycling_process"
+          },
+          {
+            "id": "value_proposition",
+            "type": "features_section",
+            "title": "Fashion Forward, Planet First",
+            "items": [
+              {
+                "title": "100% Recycled Materials",
+                "description": "Every piece saves 12-15 plastic bottles from landfills",
+                "icon": "recycle"
+              },
+              {
+                "title": "Carbon Neutral Shipping",
+                "description": "Zero-impact delivery to your doorstep",
+                "icon": "leaf"
+              },
+              {
+                "title": "Transparent Supply Chain",
+                "description": "Track your garment's journey from waste to wardrobe",
+                "icon": "timeline"
+              }
+            ]
+          },
+          {
+            "id": "social_proof",
+            "type": "testimonials_section",
+            "title": "Join the EcoStyle Movement",
+            "testimonials": [
+              {
+                "quote": "Finally, sustainable fashion that actually looks good on Instagram!",
+                "author": "Emma Chen",
+                "title": "Climate Activist",
+                "company": "@ecostyle_emma"
+              }
+            ]
+          },
+          {
+            "id": "cta_section",
+            "type": "call_to_action",
+            "headline": "Ready to Dress for the Future?",
+            "description": "Get 15% off your first order when you join our conscious community",
+            "cta_text": "Shop Now & Save"
+          }
+        ]
+      }
+    ],
+    "homepage": {
+      "seo_title": "EcoThreads | Sustainable Fashion for Gen Z | Recycled Clothing",
+      "meta_description": "Shop trendsetting sustainable fashion made from recycled materials. Join Gen Z's favorite eco-conscious clothing brand with carbon-neutral shipping.",
+      "hero": {
+        "headline": "Style That Doesn't Cost the Earth",
+        "subheadline": "Fashion-forward designs made from recycled materials",
+        "primary_cta": "Shop New Arrivals",
+        "secondary_cta": "Learn Our Impact",
+        "hero_copy": "Join thousands of conscious consumers redefining fashion"
+      },
+      "value_propositions": [
+        "100% recycled materials in every piece",
+        "Carbon neutral shipping worldwide",
+        "Transparent supply chain tracking"
+      ],
+      "features": [
+        {
+          "title": "Recycled Innovation",
+          "description": "Advanced recycling technology transforms waste into premium fabric",
+          "benefit": "Look amazing while reducing landfill waste"
+        }
+      ],
+      "faq": [
+        {
+          "question": "How sustainable are your clothes really?",
+          "answer": "Each garment is made from 100% recycled materials, saving 12-15 plastic bottles from landfills. We use zero-waste manufacturing and carbon-neutral shipping."
+        }
+      ]
+    },
+    "style_guide": {
+      "brand_name": "EcoThreads",
+      "colors": [
+        "#2B9348",
+        "#52B788",
+        "#F8EDEB"
+      ],
+      "typography": {
+        "primary_font": "Outfit",
+        "secondary_font": "Inter",
+        "heading_style": "Bold, modern, clean",
+        "body_style": "Light, airy, sustainable"
+      },
+      "tone_of_voice": {
+        "personality": "conscious|trendy|authentic",
+        "writing_style": "Young, passionate, environmentally aware, optimistic",
+        "key_messages": [
+          "Sustainable can be stylish",
+          "Your choices matter"
+        ]
+      },
+      "visual_style": {
+        "design_approach": "minimal|conscious|fresh",
+        "imagery_style": "Natural lighting, diverse models, recycling process shots",
+        "layout_principles": [
+          "Clean space",
+          "Environmental impact stats",
+          "Process transparency"
+        ]
+      }
+    },
+    "seo_recommendations": {
+      "target_keywords": [
+        "sustainable fashion",
+        "recycled clothing",
+        "eco-friendly fashion",
+        "Gen Z sustainable brands"
+      ],
+      "content_strategy": "Focus on sustainability education and fashion trends",
+      "technical_recommendations": [
+        "Implement AMP for mobile users",
+        "Create shoppable Instagram integration",
+        "Add sustainability impact calculator"
+      ],
+      "local_seo": "Target major urban areas with high Gen Z populations"
+    }
+  },
+  "metadata": {
+    "generated_at": "2025-08-18T17:43:14.105369",
+    "agent_version": "WebsiteGeneratorAgent_v1.0",
+    "ai_engine_used": true,
+    "total_pages": 6,
+    "generation_mode": "ai"
+  }
+}

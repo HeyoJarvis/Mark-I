@@ -1,0 +1,159 @@
+{
+  "generation_parameters": {
+    "brand_name": "Sunshine Pet Grooming",
+    "business_idea": "Family-owned pet grooming service with mobile grooming vans serving suburban neighborhoods",
+    "target_audience": "pet owners, families, busy professionals",
+    "industry": "pet services"
+  },
+  "website_results": {
+    "sitemap": [
+      "Home",
+      "About",
+      "Services",
+      "Mobile Grooming",
+      "Pricing",
+      "FAQ",
+      "Contact"
+    ],
+    "website_structure": [
+      {
+        "page": "Home",
+        "purpose": "Convert pet owners into mobile grooming clients",
+        "sections": [
+          {
+            "id": "hero",
+            "type": "hero_section",
+            "headline": "Professional Pet Grooming at Your Doorstep",
+            "subheadline": "Stress-free grooming services in our fully-equipped mobile salon",
+            "primary_cta": "Book Your Mobile Appointment",
+            "secondary_cta": "View Our Services",
+            "background_style": "image"
+          },
+          {
+            "id": "value_proposition",
+            "type": "features_section",
+            "title": "Why Choose Sunshine Pet Grooming",
+            "items": [
+              {
+                "title": "Convenient Mobile Service",
+                "description": "We come to you - no travel stress for your pet",
+                "icon": "van"
+              },
+              {
+                "title": "Certified Groomers",
+                "description": "Experienced professionals who love animals",
+                "icon": "certificate"
+              },
+              {
+                "title": "Personalized Care",
+                "description": "Custom grooming plans for your pet's needs",
+                "icon": "heart"
+              }
+            ]
+          },
+          {
+            "id": "social_proof",
+            "type": "testimonials_section",
+            "title": "Happy Pets, Happy Owners",
+            "testimonials": [
+              {
+                "quote": "The mobile service is perfect for my busy schedule. My golden retriever loves the groomer!",
+                "author": "Sarah Mitchell",
+                "title": "Dog Owner",
+                "company": "Local Client"
+              }
+            ]
+          },
+          {
+            "id": "cta_section",
+            "type": "call_to_action",
+            "headline": "Ready for a Stress-Free Grooming Experience?",
+            "description": "Book your first mobile grooming appointment and save 15%",
+            "cta_text": "Schedule Now"
+          }
+        ]
+      }
+    ],
+    "homepage": {
+      "seo_title": "Mobile Pet Grooming Services | Sunshine Pet Grooming | [City Name]",
+      "meta_description": "Professional mobile pet grooming services bringing convenience to your doorstep. Certified groomers, stress-free experience, serving [Region].",
+      "hero": {
+        "headline": "Professional Pet Grooming That Comes to You",
+        "subheadline": "Expert mobile grooming services for dogs and cats in the comfort of your driveway",
+        "primary_cta": "Book Mobile Grooming",
+        "secondary_cta": "See Our Services",
+        "hero_copy": "Family-owned, fully equipped mobile salon serving your neighborhood"
+      },
+      "value_propositions": [
+        "Convenient at-home service",
+        "Certified, experienced groomers",
+        "Stress-free environment for pets"
+      ],
+      "features": [
+        {
+          "title": "Full-Service Mobile Grooming",
+          "description": "Complete grooming services in our state-of-the-art mobile salon",
+          "benefit": "No travel stress for your pet"
+        }
+      ],
+      "faq": [
+        {
+          "question": "How long does a mobile grooming session take?",
+          "answer": "Most appointments take 1-2 hours, depending on your pet's size and service needs"
+        }
+      ]
+    },
+    "style_guide": {
+      "brand_name": "Sunshine Pet Grooming",
+      "colors": [
+        "#FDB813",
+        "#4A90E2",
+        "#2ECC71"
+      ],
+      "typography": {
+        "primary_font": "Montserrat",
+        "secondary_font": "Open Sans",
+        "heading_style": "Bold, warm, inviting",
+        "body_style": "Clean, friendly, accessible"
+      },
+      "tone_of_voice": {
+        "personality": "professional|friendly",
+        "writing_style": "Warm, professional, and reassuring with pet-loving personality",
+        "key_messages": [
+          "Convenient mobile service",
+          "Professional certified groomers",
+          "Stress-free experience"
+        ]
+      },
+      "visual_style": {
+        "design_approach": "modern|friendly",
+        "imagery_style": "Happy pets, professional groomers, clean mobile facilities",
+        "layout_principles": [
+          "Clean spacing",
+          "Easy navigation",
+          "Mobile-first design"
+        ]
+      }
+    },
+    "seo_recommendations": {
+      "target_keywords": [
+        "mobile pet grooming",
+        "professional dog grooming",
+        "at home pet grooming"
+      ],
+      "content_strategy": "Focus on local service areas and mobile convenience benefits",
+      "technical_recommendations": [
+        "Optimize for local search",
+        "Include service area pages"
+      ],
+      "local_seo": "Create Google Business Profile, target neighborhood-specific keywords"
+    }
+  },
+  "metadata": {
+    "generated_at": "2025-08-18T17:43:52.288247",
+    "agent_version": "WebsiteGeneratorAgent_v1.0",
+    "ai_engine_used": true,
+    "total_pages": 7,
+    "generation_mode": "ai"
+  }
+}

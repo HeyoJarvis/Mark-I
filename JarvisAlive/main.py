@@ -680,7 +680,7 @@ async def chat_interface():
     # Configuration for Universal Orchestrator
     config = UniversalOrchestratorConfig(
         anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
-        redis_url=os.getenv("REDIS_URL", "redis://localhost:6380"),
+                    redis_url=os.getenv("REDIS_URL", "redis://localhost:6379"),
         routing_confidence_threshold=float(os.getenv("ROUTING_CONFIDENCE_THRESHOLD", "0.7")),
         enable_caching=os.getenv("ENABLE_CACHING", "true").lower() == "true",
         cache_ttl_minutes=int(os.getenv("CACHE_TTL_MINUTES", "30"))

@@ -165,7 +165,9 @@ class BrandingOrchestrator:
                 parsed_intent = await self._parse_user_intent(user_request, context)
                 
                 # Step 2: Route to appropriate agent
-                if parsed_intent.primary_intent == "branding":
+                if self._detect_website_request(user_request, parsed_intent):
+                    result = await self._handle_website_request(user_request, parsed_intent, session_id)
+                elif parsed_intent.primary_intent == "branding":
                     result = await self._handle_branding_request(user_request, parsed_intent, session_id)
                 else:
                     result = await self._handle_general_request(user_request, parsed_intent, session_id)
@@ -446,6 +448,62 @@ class BrandingOrchestrator:
             return True
         
         return False
+    
+    def _detect_website_request(self, user_request: str, parsed_intent: ParsedIntent) -> bool:
+        """Detect if the user wants website generation."""
+        text = (user_request or "").lower()
+        website_keywords = [
+            "website", "web site", "landing page", "homepage",
+            "site map", "sitemap", "web copy", "hero section", "cta", "sections"
+        ]
+        if any(k in text for k in website_keywords):
+            return True
+        # Consider suggested agents if provided by parser
+        return "website_generator_agent" in (parsed_intent.suggested_agents or [])
+    
+    async def _handle_website_request(
+        self,
+        user_request: str,
+        parsed_intent: ParsedIntent,
+        session_id: str
+    ) -> Dict[str, Any]:
+        """Handle website generation by invoking WebsiteGeneratorAgent."""
+        try:
+            input_state = self._extract_business_info(user_request, parsed_intent)
+            # Pass through branding context if available
+            if parsed_intent.extracted_parameters:
+                input_state.update(parsed_intent.extracted_parameters)
+
+            invocation_id = await self.agent_executor.invoke_agent(
+                agent_id="website_generator_agent",
+                input_state=input_state,
+                context={
+                    "user_request": user_request,
+                    "parsed_intent": parsed_intent.dict(),
+                    "session_id": session_id
+                }
+            )
+            resp = await self._wait_for_response(invocation_id, timeout_seconds=180)
+            if not resp:
+                return {
+                    "status": "timeout",
+                    "message": "Website generation timed out",
+                    "invocation_id": invocation_id
+                }
+
+            formatted = self.response_formatter.format_response(resp, "website_generator_agent")
+            formatted.update({
+                "orchestration": {
+                    "intent_category": "branding",
+                    "confidence": parsed_intent.confidence,
+                    "session_id": session_id
+                }
+            })
+            return formatted
+
+        except Exception as e:
+            self.logger.error(f"Website request handling failed: {e}")
+            raise
     
     async def _wait_for_response(self, invocation_id: str, timeout_seconds: int = 300) -> Optional[Any]:
         """Wait for agent response with timeout."""

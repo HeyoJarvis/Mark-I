@@ -62,7 +62,7 @@ class RoutingDecision:
 class UniversalOrchestratorConfig(BaseModel):
     """Configuration for Universal Orchestrator."""
     anthropic_api_key: str = Field(..., description="Anthropic API key")
-    redis_url: str = Field(default="redis://localhost:6380", description="Redis connection URL")
+    redis_url: str = Field(default="redis://localhost:6379", description="Redis connection URL")
     
     # Individual orchestrator configs
     branding_config: Optional[Dict[str, Any]] = Field(default=None)
@@ -267,8 +267,8 @@ class UniversalOrchestrator:
 You are an intelligent routing system that classifies user queries to determine which specialized AI agent should handle them.
 
 Available Orchestrators:
-1. BRANDING - Brand creation, logo design, color palettes, business identity (NOT market research)
-   Examples: "Create a brand for my coffee shop", "Design a logo", "I need brand colors"
+1. BRANDING - Brand creation, logos, color palettes, websites/landing pages, brand web copy
+   Examples: "Create a brand for my coffee shop", "Design a logo", "I need brand colors", "Build a landing page"
 
 2. MARKET_RESEARCH - Market analysis, competitor research, industry insights, customer analysis, pricing trends
    Examples: "Analyze the EV market", "Competitor analysis for fintech", "Market size for sustainable fashion"

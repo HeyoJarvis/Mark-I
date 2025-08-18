@@ -126,7 +126,7 @@ class WorkflowBrain:
             
             orchestrator_config = UniversalOrchestratorConfig(
                 anthropic_api_key=self.config.get('anthropic_api_key'),
-                redis_url=self.config.get('redis_url', 'redis://localhost:6380')
+                redis_url=self.config.get('redis_url', 'redis://localhost:6379')
             )
             
             self.universal_orchestrator = UniversalOrchestrator(orchestrator_config)

@@ -81,7 +81,7 @@ class IntentParser:
         
         # Agent mapping
         self.agent_mapping = {
-            "branding": ["branding_agent"],
+            "branding": ["branding_agent", "website_generator_agent"],
             "sales": ["lead_scanner_agent", "outreach_composer_agent"],
             "marketing": ["content_creator_agent", "campaign_manager_agent"],
             "engineering": ["code_reviewer_agent", "architect_agent"],
@@ -137,7 +137,8 @@ class IntentParser:
                     r"come up with.*name|create.*brand|design.*logo",
                     r"business.*name|company.*name|product.*name",
                     r"color.*palette|brand.*colors|visual.*identity",
-                    r"domain.*name|website.*name|online.*presence"
+                    r"domain.*name|website.*name|online.*presence",
+                    r"website|web\s*site|landing\s*page|homepage|site\s*map|sitemap|web\s*copy"
                 ],
                 priority=3,
                 parameters=["business_type", "industry", "target_audience"],

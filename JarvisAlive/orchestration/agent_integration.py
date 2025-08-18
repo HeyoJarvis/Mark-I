@@ -23,6 +23,7 @@ from .intent_parser import ParsedIntent
 from departments.branding.branding_agent import BrandingAgent
 from departments.branding.logo_generation_agent import LogoGenerationAgent
 from departments.market_research.market_research_agent import MarketResearchAgent
+from departments.website.website_generator_agent import WebsiteGeneratorAgent
 
 logger = logging.getLogger(__name__)
 
@@ -167,6 +168,38 @@ class AgentRegistry:
                 },
                 "category": "market_research",
                 "coordination": ["works_with_branding_agent", "informs_business_strategy"]
+            }
+        )
+        
+        # Register WebsiteGeneratorAgent
+        self.register_agent(
+            agent_id="website_generator_agent",
+            agent_class=WebsiteGeneratorAgent,
+            metadata={
+                "name": "Website Generator Agent",
+                "description": "Generates website sitemap, structure, content, and style guide",
+                "capabilities": [
+                    "website_architecture", "content_generation", "seo_optimization", 
+                    "style_guide_creation", "conversion_optimization", "industry_customization"
+                ],
+                "input_schema": {
+                    "brand_name": "string (optional)",
+                    "business_idea": "string",
+                    "color_palette": "array of hex colors (optional)",
+                    "target_audience": "string (optional)",
+                    "industry": "string (optional)",
+                    "pages": "array of desired page names (optional)",
+                    "website_type": "string (optional)"
+                },
+                "output_schema": {
+                    "sitemap": "array of page names",
+                    "website_structure": "array of page objects with sections",
+                    "homepage": "object with SEO and content details",
+                    "style_guide": "object with branding and design guidelines",
+                    "seo_recommendations": "object with SEO strategy"
+                },
+                "category": "branding",
+                "coordination": ["works_with_branding_agent", "uses_branding_context", "seo_optimized"]
             }
         )
         
@@ -573,5 +606,31 @@ class ResponseFormatter:
         """Format response based on agent type."""
         if agent_id == "branding_agent":
             return self.format_branding_response(response)
+        elif agent_id == "website_generator_agent":
+            return self.format_website_response(response)
         else:
-            return self.format_general_response(response) 
+            return self.format_general_response(response)
+    
+    def format_website_response(self, response: AgentResponse) -> Dict[str, Any]:
+        """Format website generator agent response for user display."""
+        if response.status != AgentStatus.COMPLETED:
+            return {
+                "status": "error",
+                "message": response.error_message or "Website generation failed"
+            }
+        
+        output = response.output_state
+        
+        formatted_response = {
+            "status": "success",
+            "sitemap": output.get("sitemap", []),
+            "website_structure": output.get("website_structure", []),
+            "homepage": output.get("homepage", {}),
+            "style_guide": output.get("style_guide", {}),
+            "seo_recommendations": output.get("seo_recommendations", {}),
+            "generated_at": output.get("website_generated_at", "N/A"),
+            "execution_time_ms": response.execution_time_ms,
+            "invocation_id": response.invocation_id
+        }
+        
+        return formatted_response 
