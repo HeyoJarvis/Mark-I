@@ -1,0 +1,361 @@
+# Kubernetes deployment manifests for HeyJarvis parallel workflow system
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: heyjarvis
+---
+# ConfigMap for application configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: heyjarvis-config
+  namespace: heyjarvis
+data:
+  DEPLOYMENT_ENVIRONMENT: "production"
+  LOG_LEVEL: "INFO"
+  LOG_FORMAT: "json"
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"
+  REDIS_SSL: "false"
+  METRICS_ENABLED: "true"
+  METRICS_PORT: "8080"
+  HEALTH_CHECK_PORT: "8081"
+---
+# Secret for API keys
+apiVersion: v1
+kind: Secret
+metadata:
+  name: heyjarvis-secrets
+  namespace: heyjarvis
+type: Opaque
+data:
+  # Base64 encoded API keys - replace with actual encoded values
+  ANTHROPIC_API_KEY: "" # echo -n "your-api-key" | base64
+  OPENAI_API_KEY: ""     # echo -n "your-api-key" | base64
+---
+# Redis Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: heyjarvis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+      volumes:
+      - name: redis-data
+        persistentVolumeClaim:
+          claimName: redis-pvc
+---
+# Redis Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: heyjarvis
+spec:
+  selector:
+    app: redis
+  ports:
+  - protocol: TCP
+    port: 6379
+    targetPort: 6379
+  type: ClusterIP
+---
+# Redis PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-pvc
+  namespace: heyjarvis
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+# HeyJarvis Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: heyjarvis
+  namespace: heyjarvis
+spec:
+  replicas: 3  # High availability
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: heyjarvis
+  template:
+    metadata:
+      labels:
+        app: heyjarvis
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+      - name: heyjarvis
+        image: heyjarvis:latest
+        ports:
+        - containerPort: 8000
+          name: api
+        - containerPort: 8080
+          name: metrics
+        - containerPort: 8081
+          name: health
+        envFrom:
+        - configMapRef:
+            name: heyjarvis-config
+        - secretRef:
+            name: heyjarvis-secrets
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8081
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        volumeMounts:
+        - name: workflow-reports
+          mountPath: /app/workflow_reports
+        - name: app-logs
+          mountPath: /app/logs
+      volumes:
+      - name: workflow-reports
+        persistentVolumeClaim:
+          claimName: workflow-reports-pvc
+      - name: app-logs
+        persistentVolumeClaim:
+          claimName: app-logs-pvc
+      initContainers:
+      - name: wait-for-redis
+        image: busybox:1.35
+        command: 
+        - 'sh'
+        - '-c'
+        - 'until nc -z redis-service 6379; do echo waiting for redis; sleep 2; done'
+---
+# HeyJarvis Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: heyjarvis-service
+  namespace: heyjarvis
+spec:
+  selector:
+    app: heyjarvis
+  ports:
+  - name: api
+    protocol: TCP
+    port: 8000
+    targetPort: 8000
+  - name: metrics
+    protocol: TCP
+    port: 8080
+    targetPort: 8080
+  - name: health
+    protocol: TCP
+    port: 8081
+    targetPort: 8081
+  type: ClusterIP
+---
+# Ingress for external access
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: heyjarvis-ingress
+  namespace: heyjarvis
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+  - hosts:
+    - heyjarvis.example.com
+    secretName: heyjarvis-tls
+  rules:
+  - host: heyjarvis.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: heyjarvis-service
+            port:
+              number: 8000
+---
+# PVCs for persistent storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: workflow-reports-pvc
+  namespace: heyjarvis
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: app-logs-pvc
+  namespace: heyjarvis
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 20Gi
+---
+# HorizontalPodAutoscaler
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: heyjarvis-hpa
+  namespace: heyjarvis
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: heyjarvis
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+---
+# ServiceMonitor for Prometheus
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: heyjarvis-metrics
+  namespace: heyjarvis
+spec:
+  selector:
+    matchLabels:
+      app: heyjarvis
+  endpoints:
+  - port: metrics
+    interval: 30s
+    path: /metrics
+---
+# NetworkPolicy for security
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: heyjarvis-network-policy
+  namespace: heyjarvis
+spec:
+  podSelector:
+    matchLabels:
+      app: heyjarvis
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8000
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 8080
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+  - to: []  # Allow all outbound for API calls
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 80

@@ -21,6 +21,8 @@ from .message_bus import MessageBus, MessageType
 from .concurrent_orchestrator import ConcurrentOrchestrator, ExecutionBatch, ApprovalRequest
 from .agents.persistent_branding_agent import PersistentBrandingAgent
 from .agents.persistent_market_research_agent import PersistentMarketResearchAgent
+from .agents.persistent_logo_generation_agent import PersistentLogoGenerationAgent
+from .agents.persistent_website_generation_agent import PersistentWebsiteGenerationAgent
 
 
 class PersistentSystemConfig:
@@ -341,6 +343,39 @@ class PersistentSystem:
                 "market_consultation",
                 "business_strategy",
                 "market_research"  # Add high-level market_research task type
+            ],
+            max_instances=self.config.max_agents_per_type,
+            auto_restart=self.config.agent_restart_enabled,
+            priority=1
+        )
+        
+        # Register PersistentLogoGenerationAgent
+        self.agent_pool.register_agent(
+            agent_id="logo_generation_agent",
+            agent_class=PersistentLogoGenerationAgent,
+            config=agent_config,
+            supported_tasks=[
+                "logo_generation",
+                "logo_design",
+                "visual_identity_creation",
+                "brand_visualization"
+            ],
+            max_instances=self.config.max_agents_per_type,
+            auto_restart=self.config.agent_restart_enabled,
+            priority=2  # Lower priority since it can be resource intensive
+        )
+        
+        # Register PersistentWebsiteGenerationAgent
+        self.agent_pool.register_agent(
+            agent_id="website_generation_agent", 
+            agent_class=PersistentWebsiteGenerationAgent,
+            config=agent_config,
+            supported_tasks=[
+                "website_generation",
+                "website_design",
+                "site_structure_creation",
+                "web_content_generation",
+                "landing_page_creation"
             ],
             max_instances=self.config.max_agents_per_type,
             auto_restart=self.config.agent_restart_enabled,

@@ -221,8 +221,8 @@ class AnthropicEngine(BaseAIEngine):
     def get_supported_models(self) -> list[str]:
         """Get list of supported Anthropic models"""
         return [
+            "claude-3-5-sonnet-20241022",  # Current flagship model
             "claude-3-opus-20240229",
-            "claude-3-sonnet-20240229", 
             "claude-3-haiku-20240307",
             "claude-2.1",
             "claude-2.0",
@@ -232,9 +232,8 @@ class AnthropicEngine(BaseAIEngine):
     def get_model_limits(self, model: str) -> Dict[str, int]:
         """Get token limits for specific models"""
         limits = {
+            "claude-3-5-sonnet-20241022": {"max_tokens": 8192, "context_window": 200000},  # Current flagship
             "claude-3-opus-20240229": {"max_tokens": 4096, "context_window": 200000},
-            "claude-3-sonnet-20240229": {"max_tokens": 4096, "context_window": 200000},
-            "claude-3-5-sonnet-20241022": {"max_tokens": 8192, "context_window": 200000},
             "claude-3-haiku-20240307": {"max_tokens": 4096, "context_window": 200000},
             "claude-2.1": {"max_tokens": 4096, "context_window": 200000},
             "claude-2.0": {"max_tokens": 4096, "context_window": 100000},

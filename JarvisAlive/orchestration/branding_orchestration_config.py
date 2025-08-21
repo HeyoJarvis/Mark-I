@@ -28,7 +28,7 @@ class BrandingAgentConfig(BaseModel):
             "max_domain_suggestions": 5,
             "color_palette_size": 4,
             "enable_fallback_mode": True,
-            "ai_model": "claude-3-sonnet-20240229",
+            "ai_model": "claude-3-5-sonnet-20241022",
             "temperature": 0.8
         },
         description="BrandingAgent-specific configuration"
@@ -119,7 +119,7 @@ DEVELOPMENT_CONFIG = BrandingAgentConfig(
         "max_domain_suggestions": 3,
         "color_palette_size": 3,
         "enable_fallback_mode": True,
-        "ai_model": "claude-3-sonnet-20240229",
+        "ai_model": "claude-3-5-sonnet-20241022",
         "temperature": 0.9
     },
     intent_parsing={

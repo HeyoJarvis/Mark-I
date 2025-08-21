@@ -61,6 +61,8 @@ class PersistentMarketResearchAgent(PersistentAgent):
             agent_config = self.config.copy()
             if self.ai_engine:
                 agent_config['anthropic_api_key'] = self.ai_engine.config.api_key
+            # Disable interactive approval for automated execution
+            agent_config['interactive_approval'] = False
             # Enable mock mode for demo purposes
             agent_config['mock_mode'] = not bool(self.ai_engine)
             self.core_agent = CoreMarketResearchAgent(
