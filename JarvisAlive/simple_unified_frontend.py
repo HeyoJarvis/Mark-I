@@ -66,15 +66,20 @@ async def startup_event():
         await workflow_brain.initialize_orchestration()
         logger.info("✅ Intelligence layer ready")
         
-        # Initialize LangGraph builder
+        # Initialize LangGraph builder with approval callback
         langgraph_builder = ParallelIntelligentGraphBuilder(
             redis_url='redis://localhost:6379',
-            skip_approvals=True
+            skip_approvals=False,  # Enable approvals for HITL
+            approval_callback=ui_approval_callback
         )
         logger.info("✅ LangGraph ready")
         
-        # Initialize individual agents
-        agent_config = {'anthropic_api_key': os.getenv('ANTHROPIC_API_KEY')}
+        # Initialize individual agents with interactive approval
+        agent_config = {
+            'anthropic_api_key': os.getenv('ANTHROPIC_API_KEY'),
+            'interactive_approval': True,
+            'approval_callback': ui_approval_callback
+        }
         individual_agents = {
             'branding': BrandingAgent(agent_config),
             'market_research': MarketResearchAgent(agent_config)
@@ -92,6 +97,114 @@ async def shutdown_event():
     """Cleanup."""
     if persistent_system:
         await persistent_system.stop()
+
+# WebSocket endpoint for real-time updates and human-in-the-loop
+@app.websocket("/ws/{session_id}")
+async def websocket_endpoint(websocket: WebSocket, session_id: str):
+    """WebSocket endpoint for real-time communication and HITL."""
+    await websocket.accept()
+    active_connections[session_id] = websocket
+    
+    try:
+        # Send initial system status
+        await websocket.send_text(json.dumps({
+            'type': 'system_ready',
+            'data': {
+                'session_id': session_id,
+                'message': 'Connected to Unified Agent System with Human-in-the-Loop support'
+            }
+        }))
+        
+        while True:
+            # Handle incoming messages
+            data = await websocket.receive_text()
+            message = json.loads(data)
+            
+            if message['type'] == 'ping':
+                await websocket.send_text(json.dumps({'type': 'pong'}))
+            elif message['type'] == 'approval_response':
+                await handle_approval_response(session_id, message['data'])
+            
+    except WebSocketDisconnect:
+        active_connections.pop(session_id, None)
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        active_connections.pop(session_id, None)
+
+async def broadcast_to_session(session_id: str, message: Dict[str, Any]):
+    """Broadcast a message to a specific session's WebSocket."""
+    if session_id in active_connections:
+        try:
+            await active_connections[session_id].send_text(json.dumps(message))
+        except:
+            active_connections.pop(session_id, None)
+
+# Global storage for pending approvals
+pending_approvals: Dict[str, Dict[str, Any]] = {}
+
+async def handle_approval_response(session_id: str, data: Dict[str, Any]):
+    """Handle human approval responses."""
+    approval_id = data.get('approval_id')
+    response = data.get('response')  # 'approve', 'reject', 'regenerate'
+    
+    if approval_id in pending_approvals:
+        approval_data = pending_approvals[approval_id]
+        approval_data['user_response'] = response
+        approval_data['responded'] = True
+        
+        # Notify that approval was received
+        await broadcast_to_session(session_id, {
+            'type': 'approval_received',
+            'data': {
+                'approval_id': approval_id,
+                'response': response,
+                'message': f'Your {response} response has been received. Processing...'
+            }
+        })
+
+# Custom approval callback for human-in-the-loop
+async def ui_approval_callback(approval_request: Dict[str, Any]) -> str:
+    """Handle approval requests through the UI."""
+    session_id = approval_request.get('session_id', 'unknown')
+    approval_id = f"approval_{int(datetime.utcnow().timestamp())}_{session_id}"
+    
+    # Store the approval request
+    pending_approvals[approval_id] = {
+        'request': approval_request,
+        'responded': False,
+        'user_response': None,
+        'created_at': datetime.utcnow()
+    }
+    
+    # Send approval request to UI
+    await broadcast_to_session(session_id, {
+        'type': 'approval_request',
+        'data': {
+            'approval_id': approval_id,
+            'prompt': approval_request.get('prompt', 'Please review and approve'),
+            'options': approval_request.get('options', ['approve', 'reject', 'regenerate']),
+            'context': approval_request.get('context', {}),
+            'agent': approval_request.get('agent', 'system')
+        }
+    })
+    
+    # Wait for user response (with timeout)
+    timeout = 300  # 5 minutes
+    start_time = datetime.utcnow()
+    
+    while not pending_approvals[approval_id]['responded']:
+        await asyncio.sleep(1)
+        if (datetime.utcnow() - start_time).total_seconds() > timeout:
+            # Timeout - default to approve
+            pending_approvals[approval_id]['user_response'] = 'approve'
+            break
+    
+    response = pending_approvals[approval_id]['user_response']
+    
+    # Cleanup
+    del pending_approvals[approval_id]
+    
+    return response or 'approve'
 
 # REST API endpoints
 @app.post("/api/sessions")
@@ -143,48 +256,158 @@ async def send_agent_message(request: AgentMessageRequest):
     try:
         if request.agent_id == "orchestrator":
             # Use LangGraph orchestrator
-            graph_app, system, brain = await langgraph_builder.build()
-            
-            initial_state = {
-                'workflow_id': f"wf_{request.session_id}_{int(datetime.utcnow().timestamp())}",
-                'session_id': request.session_id,
-                'user_request': request.message,
-                'created_at': datetime.utcnow(),
-                'updated_at': datetime.utcnow()
-            }
-            
-            # Run workflow and collect results
-            config = {"configurable": {"thread_id": initial_state['workflow_id']}}
-            
-            result_summary = []
-            async for state_update in graph_app.astream(initial_state, config):
-                if state_update:
-                    result_summary.append(str(state_update))
-            
-            # Get final state
-            final_state = await graph_app.aget_state(config)
-            
-            response = "🧠 **Intelligence Orchestrator Workflow Complete!**\n\n"
-            
-            if final_state and final_state.values:
-                fs = final_state.values
-                if 'final_results' in fs and fs['final_results']:
-                    fr = fs['final_results']
-                    if 'summary' in fr:
-                        response += f"**Summary:** {fr['summary']}\n\n"
-                    if 'artifacts' in fr:
-                        response += "**Generated Content:**\n"
-                        for key, value in fr['artifacts'].items():
-                            response += f"• {key}: {str(value)[:200]}...\n"
-                        response += "\n"
-                    if 'recommendations' in fr:
-                        response += "**Recommendations:**\n"
-                        for rec in fr['recommendations'][:3]:
-                            response += f"• {rec}\n"
-                else:
-                    response += "I've coordinated the workflow for your request. The agents have worked together to provide a comprehensive response."
+            try:
+                graph_app, system, brain = await langgraph_builder.build()
+                
+                initial_state = {
+                    'workflow_id': f"wf_{request.session_id}_{int(datetime.utcnow().timestamp())}",
+                    'session_id': request.session_id,
+                    'user_request': request.message,
+                    'created_at': datetime.utcnow(),
+                    'updated_at': datetime.utcnow()
+                }
+                
+                # Run workflow and collect results
+                config = {"configurable": {"thread_id": initial_state['workflow_id']}}
+                
+                result_summary = []
+                try:
+                    async for state_update in graph_app.astream(initial_state, config):
+                        if state_update:
+                            result_summary.append(str(state_update))
+                except Exception as workflow_error:
+                    logger.error(f"Workflow execution error: {workflow_error}")
+                    # Continue to try getting final state
+                
+                # Get final state
+                final_state = None
+                try:
+                    final_state = await graph_app.aget_state(config)
+                except Exception as state_error:
+                    logger.error(f"Final state retrieval error: {state_error}")
+                    
+            except Exception as orchestrator_error:
+                logger.error(f"Orchestrator initialization error: {orchestrator_error}")
+                response = f"🧠 **Intelligence Orchestrator Error**\n\nI encountered an issue while setting up the workflow: {str(orchestrator_error)}\n\nPlease try again or contact support if the issue persists."
             else:
-                response += "Workflow executed successfully. Multiple agents collaborated on your request."
+                # Only process results if no error occurred
+                response = "🧠 **Intelligence Orchestrator Workflow Complete!**\n\n"
+                
+                # Notify via WebSocket that workflow is complete
+                await broadcast_to_session(request.session_id, {
+                    'type': 'workflow_complete',
+                    'data': {
+                        'message': 'Intelligence orchestrator workflow completed successfully!'
+                    }
+                })
+                
+                if final_state and final_state.values:
+                    fs = final_state.values
+                    
+                    # Check for agent results first
+                    if 'agent_results' in fs and fs['agent_results']:
+                        agent_results = fs['agent_results']
+                        response += "**Agent Results:**\n\n"
+                        
+                        for agent_name, result in agent_results.items():
+                            if result and isinstance(result, dict):
+                                response += f"**{agent_name.title()} Agent:**\n"
+                                
+                                # Format branding results
+                                if agent_name == 'branding' and result:
+                                    if 'brand_name' in result:
+                                        response += f"• Brand Name: {result['brand_name']}\n"
+                                    if 'logo_prompt' in result:
+                                        response += f"• Logo Concept: {result['logo_prompt']}\n"
+                                    if 'color_palette' in result:
+                                        colors = result['color_palette']
+                                        if isinstance(colors, list):
+                                            response += f"• Color Palette: {', '.join(colors)}\n"
+                                    if 'brand_guidelines' in result:
+                                        response += f"• Brand Guidelines: {result['brand_guidelines'][:200]}...\n"
+                                    if 'domain_suggestions' in result:
+                                        domains = result['domain_suggestions']
+                                        if isinstance(domains, list):
+                                            response += f"• Domain Suggestions: {', '.join(domains[:3])}\n"
+                                
+                                # Format market research results
+                                elif agent_name == 'market_research' and result:
+                                    if 'market_opportunity_score' in result:
+                                        response += f"• Market Opportunity Score: {result['market_opportunity_score']}/100\n"
+                                    if 'key_findings' in result:
+                                        findings = result['key_findings']
+                                        if isinstance(findings, list):
+                                            response += f"• Key Findings:\n"
+                                            for finding in findings[:3]:
+                                                response += f"  - {finding}\n"
+                                    if 'recommended_strategy' in result:
+                                        response += f"• Strategy: {result['recommended_strategy']}\n"
+                                
+                                # Generic result formatting
+                                else:
+                                    for key, value in result.items():
+                                        if key not in ['report_path', 'timestamp', 'session_id']:
+                                            response += f"• {key.replace('_', ' ').title()}: {str(value)[:100]}...\n"
+                                
+                                response += "\n"
+                    
+                    # Check for final_results as fallback
+                    elif 'final_results' in fs and fs['final_results']:
+                        fr = fs['final_results']
+                        if 'summary' in fr:
+                            response += f"**Summary:** {fr['summary']}\n\n"
+                        if 'artifacts' in fr and fr['artifacts']:
+                            response += "**Generated Content:**\n"
+                            for key, value in fr['artifacts'].items():
+                                if value:  # Only show non-empty values
+                                    response += f"• {key}: {str(value)[:200]}...\n"
+                            response += "\n"
+                        if 'recommendations' in fr and fr['recommendations']:
+                            response += "**Recommendations:**\n"
+                            for rec in fr['recommendations'][:3]:
+                                if isinstance(rec, dict):
+                                    response += f"• {rec.get('action', str(rec))}\n"
+                                else:
+                                    response += f"• {rec}\n"
+                    
+                    # If no meaningful results found, show debug info
+                    else:
+                        response += "**Workflow Status:**\n"
+                        if 'overall_status' in fs:
+                            response += f"• Status: {fs['overall_status']}\n"
+                        if 'completed_agents' in fs:
+                            response += f"• Completed Agents: {', '.join(fs['completed_agents'])}\n"
+                        if 'agent_tasks' in fs:
+                            response += f"• Agent Tasks: {fs['agent_tasks']}\n"
+                        
+                        response += "\n*Note: The workflow completed but detailed results may still be processing. Check the reports directory for full output.*"
+                        
+                        # Try to read the latest report as fallback
+                        try:
+                            import glob
+                            import os
+                            
+                            # Look for the most recent branding report
+                            branding_reports = glob.glob("branding_reports/branding_*.json")
+                            if branding_reports:
+                                latest_report = max(branding_reports, key=os.path.getctime)
+                                with open(latest_report, 'r') as f:
+                                    report_data = json.load(f)
+                                    
+                                response += "\n**Latest Generated Report:**\n"
+                                if 'brand_name' in report_data:
+                                    response += f"• Brand Name: {report_data['brand_name']}\n"
+                                if 'logo_prompt' in report_data:
+                                    response += f"• Logo Concept: {report_data['logo_prompt']}\n"
+                                if 'color_palette' in report_data:
+                                    colors = report_data['color_palette']
+                                    if isinstance(colors, list):
+                                        response += f"• Color Palette: {', '.join(colors)}\n"
+                        except Exception as e:
+                            logger.info(f"Could not read fallback report: {e}")
+                            
+                else:
+                    response += "Workflow executed but no final state was retrieved. The agents may still be processing your request."
             
         else:
             # Use individual agent
@@ -197,6 +420,19 @@ async def send_agent_message(request: AgentMessageRequest):
                 'user_request': request.message,
                 'session_id': request.session_id
             }
+            
+            # Notify that agent is starting
+            agent_names = {
+                'branding': '🎨 Brand Designer',
+                'market_research': '📊 Market Analyst'
+            }
+            await broadcast_to_session(request.session_id, {
+                'type': 'agent_started',
+                'data': {
+                    'agent_id': request.agent_id,
+                    'message': f'{agent_names.get(request.agent_id, "Agent")} is processing your request...'
+                }
+            })
             
             result = await agent.run(state)
             
@@ -451,6 +687,112 @@ def get_simple_frontend_html() -> str:
             display: block;
         }
         
+        /* Approval Dialog Styles */
+        .approval-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .approval-overlay.show {
+            display: flex;
+        }
+        
+        .approval-dialog {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        .approval-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #374151;
+        }
+        
+        .approval-content {
+            margin-bottom: 20px;
+            line-height: 1.6;
+            color: #6b7280;
+        }
+        
+        .approval-prompt {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        
+        .approval-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+        
+        .approval-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .approval-btn.approve {
+            background: #10b981;
+            color: white;
+        }
+        
+        .approval-btn.approve:hover {
+            background: #059669;
+        }
+        
+        .approval-btn.reject {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .approval-btn.reject:hover {
+            background: #dc2626;
+        }
+        
+        .approval-btn.regenerate {
+            background: #f59e0b;
+            color: white;
+        }
+        
+        .approval-btn.regenerate:hover {
+            background: #d97706;
+        }
+        
+        .approval-agent {
+            display: inline-block;
+            background: #e5e7eb;
+            color: #374151;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
         h1 {
             text-align: center;
             color: #374151;
@@ -510,12 +852,39 @@ def get_simple_frontend_html() -> str:
             </div>
         </div>
     </div>
+    
+    <!-- Approval Dialog -->
+    <div class="approval-overlay" id="approval-overlay">
+        <div class="approval-dialog">
+            <div class="approval-title" id="approval-title">Human Approval Required</div>
+            <div class="approval-agent" id="approval-agent">Agent Request</div>
+            <div class="approval-content" id="approval-content">
+                Please review the following request and choose your response:
+            </div>
+            <div class="approval-prompt" id="approval-prompt">
+                <!-- Approval content will be inserted here -->
+            </div>
+            <div class="approval-buttons">
+                <button class="approval-btn approve" onclick="sendApprovalResponse('approve')">
+                    ✅ Approve
+                </button>
+                <button class="approval-btn regenerate" onclick="sendApprovalResponse('regenerate')">
+                    🔄 Regenerate
+                </button>
+                <button class="approval-btn reject" onclick="sendApprovalResponse('reject')">
+                    ❌ Reject
+                </button>
+            </div>
+        </div>
+    </div>
 
     <script>
         let sessionId = null;
         let currentAgent = null;
         let agents = {};
         let isProcessing = false;
+        let websocket = null;
+        let currentApprovalId = null;
 
         // Initialize the application
         async function init() {
@@ -537,6 +906,9 @@ def get_simple_frontend_html() -> str:
                 
                 // Setup event listeners
                 setupEventListeners();
+                
+                // Connect WebSocket
+                connectWebSocket();
                 
                 console.log('Application initialized successfully');
                 addSystemMessage('✅ System ready! Select an agent to start.');
@@ -705,6 +1077,82 @@ def get_simple_frontend_html() -> str:
             
             messagesContainer.appendChild(messageDiv);
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function connectWebSocket() {
+            if (!sessionId) return;
+            
+            websocket = new WebSocket(`ws://localhost:8001/ws/${sessionId}`);
+            
+            websocket.onopen = () => {
+                console.log('WebSocket connected');
+                addSystemMessage('🟢 Real-time connection established');
+            };
+
+            websocket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                console.log('WebSocket message:', data);
+                
+                switch (data.type) {
+                    case 'system_ready':
+                        console.log('System ready:', data.data.message);
+                        break;
+                    case 'approval_request':
+                        showApprovalDialog(data.data);
+                        break;
+                    case 'approval_received':
+                        hideApprovalDialog();
+                        addSystemMessage(`✅ ${data.data.message}`);
+                        break;
+                    default:
+                        console.log('Unhandled message type:', data.type);
+                }
+            };
+
+            websocket.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                addSystemMessage('🔴 Connection error');
+            };
+
+            websocket.onclose = () => {
+                console.log('WebSocket closed');
+                addSystemMessage('🔴 Connection lost. Attempting to reconnect...');
+                setTimeout(connectWebSocket, 3000);
+            };
+        }
+
+        function showApprovalDialog(approvalData) {
+            currentApprovalId = approvalData.approval_id;
+            
+            document.getElementById('approval-title').textContent = 'Human Approval Required';
+            document.getElementById('approval-agent').textContent = `${approvalData.agent} Agent Request`;
+            document.getElementById('approval-content').textContent = 'Please review the following and choose your response:';
+            document.getElementById('approval-prompt').textContent = approvalData.prompt;
+            
+            document.getElementById('approval-overlay').classList.add('show');
+            
+            // Add approval message to chat
+            addSystemMessage('⏳ Human approval required. Please review the dialog that appeared.');
+        }
+
+        function hideApprovalDialog() {
+            document.getElementById('approval-overlay').classList.remove('show');
+            currentApprovalId = null;
+        }
+
+        function sendApprovalResponse(response) {
+            if (!currentApprovalId || !websocket) return;
+            
+            websocket.send(JSON.stringify({
+                type: 'approval_response',
+                data: {
+                    approval_id: currentApprovalId,
+                    response: response
+                }
+            }));
+            
+            hideApprovalDialog();
+            addSystemMessage(`📤 Sent ${response} response. Processing...`);
         }
 
         // Initialize when page loads

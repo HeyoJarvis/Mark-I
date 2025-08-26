@@ -94,6 +94,9 @@ class ParallelWorkflowState:
     errors: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
     
+    # Collection tracking
+    collection_attempts: int = 0
+    
     def add_error(self, message: str):
         """Add error and update status."""
         self.errors.append(message)
