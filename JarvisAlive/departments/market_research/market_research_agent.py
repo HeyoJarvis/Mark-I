@@ -239,8 +239,12 @@ class MarketResearchAgent:
         self.cache_duration_hours = self.config.get('cache_duration_hours', 24)
         
         # Output configuration
-        self.reports_dir = Path(self.config.get('reports_dir', './market_research_reports'))
-        self.reports_dir.mkdir(exist_ok=True)
+        # Use absolute path to ensure reports go to the main JarvisAlive directory
+        import os
+        jarvis_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        default_reports_dir = os.path.join(jarvis_root, 'market_research_reports')
+        self.reports_dir = Path(self.config.get('reports_dir', default_reports_dir))
+        self.reports_dir.mkdir(exist_ok=True, parents=True)
         
         self.logger.info("MarketResearchAgent initialized successfully")
     
@@ -1229,9 +1233,37 @@ class MarketResearchAgent:
     
     async def _save_research_report(self, research_result: MarketResearchResult, params: Dict[str, Any]):
         """Save detailed research report to file."""
+        import re  # Import at the top of the function
+        
         try:
             # Create filename based on business info and timestamp
-            business_name = params['business_info'].get('brand_name', 'business')
+            business_info = params.get('business_info', {})
+            
+            # Try to extract a meaningful name from various sources
+            business_name = (
+                business_info.get('brand_name') or 
+                business_info.get('business_name') or
+                business_info.get('business_idea', 'business')
+            )
+            
+            # Clean up the business name for filename
+            # Extract key words if it's a sentence like "I want to create a pen store"
+            if ' ' in business_name and len(business_name) > 30:
+                # Try to extract the actual business type
+                # Look for patterns like "create a X store" or "build a X" or "start a X"
+                match = re.search(r'(?:create|build|start|open|launch)\s+(?:a|an|my)?\s*(.+?)(?:\s+store|\s+shop|\s+business|$)', business_name.lower())
+                if match:
+                    business_name = match.group(1).strip()
+                else:
+                    # Fallback: take last few meaningful words
+                    words = business_name.split()
+                    business_name = '_'.join(words[-2:]) if len(words) > 1 else words[0]
+            
+            # Clean for filename
+            business_name = re.sub(r'[^\w\s-]', '', business_name)
+            business_name = re.sub(r'[-\s]+', '_', business_name)
+            business_name = business_name[:50]  # Limit length
+            
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"market_research_{business_name}_{timestamp}.json"
             

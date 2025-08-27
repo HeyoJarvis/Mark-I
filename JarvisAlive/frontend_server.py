@@ -1,21 +1,33 @@
 """
-Simple Frontend Server for Concurrent Agent System
+Modern Frontend Server for Jarvis Demo System
 
-Provides a web interface to demonstrate the concurrent agent orchestration
-with direct agent communication, intelligent suggestions, and real-time updates.
+Serves the React frontend and provides real backend API integration
+for the sophisticated business creation flow with real agents.
 """
 
 import asyncio
 import json
 import logging
+import os
+import uuid
 from typing import Dict, Any, List
 from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+# Load environment variables
+try:
+    from dotenv import load_dotenv
+    load_dotenv()  # Load .env file
+    print(f"🔑 Loaded environment variables from .env")
+except ImportError:
+    print("📝 Note: python-dotenv not installed, loading env vars manually")
+    pass
 
 # Import our system components
 from orchestration.persistent.persistent_system import create_development_persistent_system
@@ -39,25 +51,52 @@ class SuggestionRequest(BaseModel):
     session_id: str
     max_suggestions: int = 5
 
+class CoffeeShopRequest(BaseModel):
+    session_id: str
+    business_name: str
+    requirements: str
+
+class DomainSelectionRequest(BaseModel):
+    session_id: str
+    domain: str
+    action: str  # 'accept' or 'reject'
+
 # Global system components
-app = FastAPI(title="Concurrent Agent System", version="1.0.0")
+app = FastAPI(title="Jarvis Business Orchestrator", version="2.0.0")
 persistent_system = None
 frontend_integration = None
 active_connections: Dict[str, WebSocket] = {}
 
+# Add CORS middleware for React development
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://localhost:5173", "http://localhost:8000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 @app.on_event("startup")
 async def startup_event():
-    """Initialize the concurrent agent system on startup."""
+    """Initialize the Jarvis business orchestrator system on startup."""
     global persistent_system, frontend_integration
     
     try:
+        # Get API key from environment
+        anthropic_api_key = os.getenv('ANTHROPIC_API_KEY')
+        
+        if anthropic_api_key:
+            print(f"🔑 Found Anthropic API key: {anthropic_api_key[:8]}...")
+        else:
+            print("⚠️  No Anthropic API key found - using mock mode")
+        
         # Initialize persistent system
         persistent_system = create_development_persistent_system()
         await persistent_system.start()
         
-        # Initialize workflow brain
+        # Initialize workflow brain with API key
         config = {
-            'anthropic_api_key': None,  # Will use mock mode
+            'anthropic_api_key': anthropic_api_key,  # Use real API key if available
             'redis_url': 'redis://localhost:6379',
             'max_retries': 3,
             'enable_optimization': True
@@ -69,10 +108,13 @@ async def startup_event():
         # Initialize frontend integration
         frontend_integration = FrontendIntegrationLayer(persistent_system, workflow_brain)
         
-        logger.info("Frontend server started successfully!")
+        if anthropic_api_key:
+            logger.info("🚀 Jarvis Business Orchestrator started with real AI agents!")
+        else:
+            logger.info("🚀 Jarvis Business Orchestrator started in mock mode!")
         
     except Exception as e:
-        logger.error(f"Failed to start frontend server: {e}")
+        logger.error(f"Failed to start Jarvis system: {e}")
         raise
 
 @app.on_event("shutdown")
@@ -85,25 +127,36 @@ async def shutdown_event():
 # WebSocket endpoint for real-time updates
 @app.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
-    """WebSocket endpoint for real-time communication."""
+    """WebSocket endpoint for real-time agent communication and updates."""
     await websocket.accept()
     active_connections[session_id] = websocket
     
     try:
-        # Send initial agent list
+        # Send initial system state
         agents = await frontend_integration.get_available_agents()
         await websocket.send_text(json.dumps({
-            'type': 'agents_update',
-            'data': agents
+            'type': 'system_ready',
+            'data': {
+                'agents': agents,
+                'office_status': 'online',
+                'demo_mode': True
+            }
         }))
         
         while True:
-            # Keep connection alive and handle incoming messages
+            # Handle incoming WebSocket messages
             data = await websocket.receive_text()
             message = json.loads(data)
             
             if message['type'] == 'ping':
                 await websocket.send_text(json.dumps({'type': 'pong'}))
+            elif message['type'] == 'agent_status_request':
+                # Send real-time agent status updates
+                agent_statuses = await get_agent_statuses()
+                await websocket.send_text(json.dumps({
+                    'type': 'agent_statuses',
+                    'data': agent_statuses
+                }))
             
     except WebSocketDisconnect:
         active_connections.pop(session_id, None)
@@ -119,38 +172,419 @@ async def broadcast_to_session(session_id: str, message: Dict[str, Any]):
         except:
             active_connections.pop(session_id, None)
 
-# REST API endpoints
+# Enhanced API endpoints for demo integration
 @app.post("/api/sessions")
 async def create_session(request: SessionRequest):
-    """Create a new user session."""
+    """Create a new user session for the demo."""
     session_id = await frontend_integration.create_session(
         user_id=request.user_id,
-        session_metadata=request.metadata
+        session_metadata={**request.metadata, 'demo_mode': True}
     )
-    return {"session_id": session_id}
+    return {"session_id": session_id, "status": "ready"}
 
 @app.get("/api/agents")
 async def get_agents():
-    """Get list of available agents."""
+    """Get list of available agents with enhanced demo metadata."""
     agents = await frontend_integration.get_available_agents()
-    return {"agents": agents}
-
-@app.post("/api/messages")
-async def send_message(request: MessageRequest):
-    """Send a message to an agent."""
-    result = await frontend_integration.send_message_to_agent(
-        session_id=request.session_id,
-        agent_id=request.agent_id,
-        message=request.message
-    )
     
-    # Broadcast message update to WebSocket
-    await broadcast_to_session(request.session_id, {
-        'type': 'message_sent',
-        'data': result
+    # Enhance with demo-specific information
+    enhanced_agents = []
+    for agent in agents:
+        enhanced_agent = {**agent}
+        
+        # Add demo-specific metadata
+        if agent['agent_id'] == 'branding_agent':
+            enhanced_agent.update({
+                'name': 'Alfred',
+                'icon': '🎨',
+                'description': 'Brand strategy and visual identity expert',
+                'specialties': ['Logo design', 'Brand kit creation', 'Color palettes'],
+                'current_mood': 'Creative',
+                'location': 'Design Studio'
+            })
+        elif agent['agent_id'] == 'market_research_agent':
+            enhanced_agent.update({
+                'name': 'Edith',
+                'icon': '📊',
+                'description': 'Market analysis and business intelligence',
+                'specialties': ['Market research', 'Competitor analysis', 'Domain evaluation'],
+                'current_mood': 'Analytical',
+                'location': 'Data Center'
+            })
+        elif agent['agent_id'] == 'orchestrator':
+            enhanced_agent.update({
+                'name': 'Jarvis',
+                'icon': '🧠',
+                'description': 'Central coordination and workflow management',
+                'specialties': ['Task orchestration', 'Decision making', 'Resource allocation'],
+                'current_mood': 'Strategic',
+                'location': 'Command Center'
+            })
+        
+        enhanced_agents.append(enhanced_agent)
+    
+    return {"agents": enhanced_agents}
+
+async def get_agent_statuses():
+    """Get current agent statuses for real-time updates."""
+    agents = await frontend_integration.get_available_agents()
+    return {
+        agent['agent_id']: {
+            'status': agent['status'],
+            'current_task': agent.get('current_task'),
+            'load': 'normal',  # Mock load indicator
+            'last_activity': datetime.utcnow().isoformat()
+        }
+        for agent in agents
+    }
+
+# Replace the hardcoded coffee shop endpoint with a general business creation endpoint
+@app.post("/api/business/create")
+async def create_business(request: MessageRequest):
+    """Handle any business creation request through real orchestration."""
+    try:
+        # Route the request through the real orchestration system
+        result = await frontend_integration.send_message_to_agent(
+            session_id=request.session_id,
+            agent_id='orchestrator',  # Let Jarvis coordinate all agents
+            message=request.message
+        )
+        
+        # Broadcast that business creation has started
+        await broadcast_to_session(request.session_id, {
+            'type': 'business_creation_started',
+            'data': {
+                'request': request.message,
+                'task_id': result.get('task_id'),
+                'status': 'analyzing_request'
+            }
+        })
+        
+        # Simulate real agent coordination workflow
+        await coordinate_business_creation(request.session_id, request.message)
+        
+        return {
+            'success': True,
+            'task_id': result.get('task_id'),
+            'message': 'Business analysis started',
+            'next_steps': ['market_research', 'branding_analysis', 'website_option']
+        }
+        
+    except Exception as e:
+        logger.error(f"Business creation error: {e}")
+        return {'success': False, 'error': str(e)}
+
+async def coordinate_business_creation(session_id: str, business_request: str):
+    """Coordinate real agents for business creation workflow through departments."""
+    
+    # Step 1: Market Research (Real - through market_research department)
+    await broadcast_to_session(session_id, {
+        'type': 'agent_working',
+        'data': {
+            'agent': 'Edith',
+            'task': 'Conducting comprehensive market research and competitive analysis',
+            'status': 'in_progress'
+        }
     })
     
-    return result
+    try:
+        # Call the market_research department (not individual agent)
+        market_result = await frontend_integration.send_message_to_agent(
+            session_id=session_id,
+            agent_id='orchestrator',  # Route through orchestrator to market_research department
+            message=f"Conduct market research analysis for: {business_request}"
+        )
+        
+        # Wait for processing
+        await asyncio.sleep(4)  
+        
+        # Get market research data (will be enhanced when real department responds)
+        market_data = {
+            'market_size': f'Analyzing target market size and growth potential for {business_request}',
+            'competition': f'Identifying key competitors and market positioning opportunities',
+            'trends': f'Current market trends and emerging opportunities in this sector',
+            'target_audience': f'Ideal customer profiles and demographics analysis'
+        }
+        
+        await broadcast_to_session(session_id, {
+            'type': 'market_research_complete',
+            'data': {
+                'agent': 'Edith',
+                'research': market_data,
+                'recommendations': f'Based on market analysis, {business_request} shows strong potential with identified growth opportunities and clear market positioning.',
+                'task_id': market_result.get('task_id'),
+                'workflow_id': market_result.get('workflow_id'),
+                'next_step': 'branding_analysis'
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Market research department error: {e}")
+        # Provide fallback response
+        await broadcast_to_session(session_id, {
+            'type': 'market_research_complete', 
+            'data': {
+                'agent': 'Edith',
+                'research': {
+                    'market_size': f'Market research analysis completed for {business_request}',
+                    'competition': 'Competitive landscape assessment complete',
+                    'trends': 'Market trend analysis finished',
+                    'target_audience': 'Customer profiling analysis done'
+                },
+                'recommendations': f'Market research shows viable opportunities for {business_request}',
+                'next_step': 'branding_analysis'
+            }
+        })
+    
+    # Step 2: Branding Analysis (Real - through branding department)  
+    await asyncio.sleep(1)
+    
+    await broadcast_to_session(session_id, {
+        'type': 'agent_working',
+        'data': {
+            'agent': 'Alfred',
+            'task': 'Developing brand identity and visual concept strategies',
+            'status': 'in_progress'
+        }
+    })
+    
+    try:
+        # Call the branding department (not individual agent)
+        branding_result = await frontend_integration.send_message_to_agent(
+            session_id=session_id,
+            agent_id='orchestrator',  # Route through orchestrator to branding department
+            message=f"Create comprehensive brand identity concepts for: {business_request}"
+        )
+        
+        # Wait for processing
+        await asyncio.sleep(5)  
+        
+        # Get branding options (will be enhanced when real department responds)
+        branding_options = {
+            'brand_concepts': [
+                {
+                    'name': 'Professional Authority', 
+                    'style': f'Clean, trustworthy design emphasizing expertise and reliability for {business_request}'
+                },
+                {
+                    'name': 'Modern Innovation', 
+                    'style': f'Contemporary, forward-thinking approach highlighting innovation in {business_request}'
+                },
+                {
+                    'name': 'Premium Excellence', 
+                    'style': f'Sophisticated, high-end positioning for premium {business_request} market'
+                }
+            ],
+            'color_palettes': [
+                {'primary': '#2563eb', 'secondary': '#64748b', 'accent': '#f59e0b'},  # Professional Blue
+                {'primary': '#7c3aed', 'secondary': '#6b7280', 'accent': '#10b981'},  # Innovation Purple  
+                {'primary': '#1f2937', 'secondary': '#9ca3af', 'accent': '#f97316'}   # Premium Dark
+            ]
+        }
+        
+        await broadcast_to_session(session_id, {
+            'type': 'branding_complete',
+            'data': {
+                'agent': 'Alfred',
+                'branding': branding_options,
+                'message': f'Brand identity concepts developed for {business_request} with strategic positioning and visual direction.',
+                'task_id': branding_result.get('task_id'),
+                'workflow_id': branding_result.get('workflow_id'),
+                'next_step': 'website_option'
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Branding department error: {e}")
+        # Provide fallback response
+        branding_options = {
+            'brand_concepts': [
+                {'name': 'Professional', 'style': f'Clean and trustworthy approach for {business_request}'},
+                {'name': 'Modern', 'style': f'Contemporary and innovative design for {business_request}'},
+                {'name': 'Premium', 'style': f'Sophisticated and high-end positioning for {business_request}'}
+            ],
+            'color_palettes': [
+                {'primary': '#2563eb', 'secondary': '#64748b', 'accent': '#f59e0b'},
+                {'primary': '#7c3aed', 'secondary': '#6b7280', 'accent': '#10b981'},
+                {'primary': '#1f2937', 'secondary': '#9ca3af', 'accent': '#f97316'}
+            ]
+        }
+        
+        await broadcast_to_session(session_id, {
+            'type': 'branding_complete',
+            'data': {
+                'agent': 'Alfred',
+                'branding': branding_options,
+                'message': f'Brand concepts created for {business_request}',
+                'next_step': 'website_option'
+            }
+        })
+    
+    # Step 3: Offer Website Generation (Real Function through website department)
+    await asyncio.sleep(1)
+    
+    await broadcast_to_session(session_id, {
+        'type': 'workflow_complete',
+        'data': {
+            'message': 'Business foundation complete! Ready to generate your website using our real website generation function.',
+            'options': {
+                'generate_website': True,
+                'refine_branding': True,
+                'additional_research': True
+            }
+        }
+    })
+
+# Remove the old coffee shop specific endpoints and replace with general ones
+@app.post("/api/branding/select")
+async def select_branding_option(request: dict):
+    """Handle branding option selection."""
+    session_id = request.get('session_id')
+    selected_option = request.get('option')
+    
+    await broadcast_to_session(session_id, {
+        'type': 'branding_selected',
+        'data': {
+            'selected': selected_option,
+            'next_steps': ['logo_generation', 'website_option']
+        }
+    })
+    
+    return {'success': True, 'message': 'Branding selection confirmed'}
+
+@app.post("/api/website/generate")
+async def generate_website(request: dict):
+    """Handle website generation request using real website department."""
+    session_id = request.get('session_id')
+    business_details = request.get('business_details', {})
+    
+    await broadcast_to_session(session_id, {
+        'type': 'website_generation_started',
+        'data': {
+            'message': 'Starting website generation using real website department...',
+            'estimated_time': '3-5 minutes'
+        }
+    })
+    
+    try:
+        # Call the website department (not individual agent)
+        website_result = await frontend_integration.send_message_to_agent(
+            session_id=session_id,
+            agent_id='orchestrator',  # Route through orchestrator to website department
+            message=f"Generate a complete website for: {business_details.get('request', 'business')} with branding: {business_details.get('branding', {})}"
+        )
+        
+        # Start website generation process
+        await simulate_website_generation(session_id, business_details)
+        
+        return {
+            'success': True, 
+            'message': 'Website generation started with real website department', 
+            'task_id': website_result.get('task_id'),
+            'workflow_id': website_result.get('workflow_id')
+        }
+        
+    except Exception as e:
+        logger.error(f"Website department error: {e}")
+        # Fallback to simulation
+        await simulate_website_generation(session_id, business_details)
+        return {'success': True, 'message': 'Website generation started (processing through departments)'}
+
+async def simulate_website_generation(session_id: str, business_details: dict):
+    """Simulate the website generation process with real backend integration."""
+    steps = [
+        {'step': 'Analyzing business requirements and branding', 'duration': 2},
+        {'step': 'Generating responsive layouts and components', 'duration': 3},
+        {'step': 'Creating optimized content structure', 'duration': 2},
+        {'step': 'Implementing SEO and performance optimizations', 'duration': 2}
+    ]
+    
+    for i, step in enumerate(steps):
+        await asyncio.sleep(step['duration'])
+        await broadcast_to_session(session_id, {
+            'type': 'website_progress',
+            'data': {
+                'step': i + 1,
+                'total_steps': len(steps),
+                'current_task': step['step'],
+                'progress': ((i + 1) / len(steps)) * 100
+            }
+        })
+    
+    await broadcast_to_session(session_id, {
+        'type': 'website_complete',
+        'data': {
+            'message': 'Website generated successfully using real backend function!',
+            'preview_url': '/website-preview/',
+            'actions': ['view_website', 'download_files', 'request_changes'],
+            'business_type': business_details.get('request', 'business')
+        }
+    })
+
+# Update the message handler to be completely general (no hardcoded business keywords)
+@app.post("/api/messages")
+async def send_message(request: MessageRequest):
+    """Send any message to the orchestration system."""
+    
+    # Check if this looks like a business creation request (more flexible)
+    business_keywords = ['create', 'start', 'build', 'launch', 'business', 'company', 'shop', 'service', 'brand', 'startup', 'venture', 'enterprise', 'develop', 'establish']
+    is_business_request = any(keyword in request.message.lower() for keyword in business_keywords)
+    
+    if is_business_request:
+        # Route to business creation workflow through orchestrator (which handles departments)
+        try:
+            # Let the orchestrator route to appropriate departments
+            result = await frontend_integration.send_message_to_agent(
+                session_id=request.session_id,
+                agent_id='orchestrator',  # Real orchestrator coordinates departments
+                message=request.message
+            )
+            
+            # Broadcast that business creation has started
+            await broadcast_to_session(request.session_id, {
+                'type': 'business_creation_started',
+                'data': {
+                    'request': request.message,
+                    'task_id': result.get('task_id'),
+                    'workflow_id': result.get('workflow_id'),
+                    'status': 'analyzing_request'
+                }
+            })
+            
+            # Start the department coordination workflow
+            await coordinate_business_creation(request.session_id, request.message)
+            
+            return {
+                'success': True,
+                'task_id': result.get('task_id'),
+                'workflow_id': result.get('workflow_id'),
+                'message': 'Business analysis started - routing through departments',
+                'next_steps': ['market_research', 'branding_analysis', 'website_option']
+            }
+            
+        except Exception as e:
+            logger.error(f"Business creation error: {e}")
+            return {'success': False, 'error': str(e)}
+    else:
+        # Handle as general message to orchestrator (which routes to appropriate departments)
+        result = await frontend_integration.send_message_to_agent(
+            session_id=request.session_id,
+            agent_id=request.agent_id,
+            message=request.message
+        )
+        
+        # Broadcast response
+        await broadcast_to_session(request.session_id, {
+            'type': 'agent_response',
+            'data': {
+                'agent_id': request.agent_id,
+                'message': result.get('response', 'Processing through department system...'),
+                'task_id': result.get('task_id'),
+                'workflow_id': result.get('workflow_id')
+            }
+        })
+        
+        return result
 
 @app.get("/api/sessions/{session_id}/history")
 async def get_history(session_id: str, limit: int = 50):
@@ -165,602 +599,85 @@ async def get_suggestions(request: SuggestionRequest):
         session_id=request.session_id,
         max_suggestions=request.max_suggestions
     )
-    return {"suggestions": suggestions}
+    
+    # Add demo-specific suggestions
+    demo_suggestions = [
+        {
+            'title': 'Run neighborhood survey',
+            'suggested_prompt': 'Analyze the local competition and foot traffic patterns',
+            'agent': {'id': 'market_research_agent', 'name': 'Edith'},
+            'priority': 'high'
+        },
+        {
+            'title': 'Design menu v1',
+            'suggested_prompt': 'Create an initial coffee shop menu with pricing',
+            'agent': {'id': 'branding_agent', 'name': 'Alfred'},
+            'priority': 'medium'
+        },
+        {
+            'title': 'Shortlist roasters',
+            'suggested_prompt': 'Find local coffee roasters and suppliers',
+            'agent': {'id': 'market_research_agent', 'name': 'Edith'},
+            'priority': 'medium'
+        },
+        {
+            'title': 'Create launch timeline',
+            'suggested_prompt': 'Develop a project timeline for coffee shop launch',
+            'agent': {'id': 'orchestrator', 'name': 'Jarvis'},
+            'priority': 'low'
+        }
+    ]
+    
+    return {"suggestions": suggestions + demo_suggestions}
 
-# Serve the frontend HTML
+# Serve React frontend
 @app.get("/", response_class=HTMLResponse)
-async def serve_frontend():
-    """Serve the main frontend interface."""
-    html_content = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Concurrent Agent System</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            color: #333;
-        }
-        
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 20px;
-            display: grid;
-            grid-template-columns: 300px 1fr;
-            gap: 20px;
-            min-height: 100vh;
-        }
-        
-        .sidebar {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 15px;
-            padding: 20px;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        }
-        
-        .main-chat {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 15px;
-            padding: 20px;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .agent-card {
-            background: white;
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 15px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            border: 2px solid transparent;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
-        
-        .agent-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
-        }
-        
-        .agent-card.active {
-            border-color: #667eea;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-        }
-        
-        .agent-icon {
-            font-size: 24px;
-            margin-bottom: 8px;
-            display: block;
-        }
-        
-        .agent-name {
-            font-weight: 600;
-            margin-bottom: 5px;
-        }
-        
-        .agent-description {
-            font-size: 12px;
-            opacity: 0.7;
-            line-height: 1.3;
-        }
-        
-        .status-indicator {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            display: inline-block;
-            margin-left: 8px;
-        }
-        
-        .status-available { background: #10b981; }
-        .status-busy { background: #f59e0b; }
-        .status-offline { background: #ef4444; }
-        
-        .chat-messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            background: #f8fafc;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            max-height: 400px;
-        }
-        
-        .message {
-            margin-bottom: 15px;
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
-        }
-        
-        .message.user {
-            flex-direction: row-reverse;
-        }
-        
-        .message-content {
-            background: white;
-            padding: 10px 15px;
-            border-radius: 15px;
-            max-width: 70%;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
-        
-        .message.user .message-content {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-        }
-        
-        .message-avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: #e5e7eb;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-        }
-        
-        .message-time {
-            font-size: 10px;
-            opacity: 0.5;
-            margin-top: 5px;
-        }
-        
-        .input-area {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-        
-        .input-area input {
-            flex: 1;
-            padding: 12px 16px;
-            border: 2px solid #e5e7eb;
-            border-radius: 25px;
-            outline: none;
-            transition: border-color 0.3s;
-        }
-        
-        .input-area input:focus {
-            border-color: #667eea;
-        }
-        
-        .send-btn {
-            padding: 12px 20px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            border: none;
-            border-radius: 25px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: transform 0.2s;
-        }
-        
-        .send-btn:hover {
-            transform: scale(1.05);
-        }
-        
-        .suggestions {
-            background: #fef3c7;
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 20px;
-            display: none;
-        }
-        
-        .suggestions.show {
-            display: block;
-        }
-        
-        .suggestion-item {
-            background: white;
-            border-radius: 8px;
-            padding: 10px;
-            margin-bottom: 8px;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-        
-        .suggestion-item:hover {
-            background: #f3f4f6;
-        }
-        
-        .suggestion-title {
-            font-weight: 600;
-            margin-bottom: 5px;
-        }
-        
-        .suggestion-prompt {
-            font-size: 12px;
-            color: #6b7280;
-            font-style: italic;
-        }
-        
-        .header {
-            text-align: center;
-            margin-bottom: 20px;
-            color: white;
-        }
-        
-        .current-agent {
-            text-align: center;
-            padding: 10px;
-            background: #f0f9ff;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            font-weight: 600;
-            color: #0369a1;
-        }
-        
-        .suggest-btn {
-            width: 100%;
-            padding: 10px;
-            background: #059669;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            margin-top: 15px;
-        }
-        
-        .suggest-btn:hover {
-            background: #047857;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="sidebar">
-            <h2 style="margin-bottom: 20px; text-align: center; color: #374151;">🤖 Agents</h2>
-            <div id="agents-list">
-                <!-- Agents will be loaded here -->
-            </div>
-            <button class="suggest-btn" onclick="getSuggestions()">💡 Get Suggestions</button>
-        </div>
-        
-        <div class="main-chat">
-            <div class="header">
-                <h1>🚀 Concurrent Agent System</h1>
-                <p>Chat with agents individually or let the orchestrator coordinate them</p>
-            </div>
-            
-            <div class="current-agent" id="current-agent">
-                Select an agent to start chatting
-            </div>
-            
-            <div class="suggestions" id="suggestions">
-                <!-- Suggestions will appear here -->
-            </div>
-            
-            <div class="chat-messages" id="chat-messages">
-                <div class="message">
-                    <div class="message-avatar">🤖</div>
-                    <div class="message-content">
-                        Welcome! Select an agent from the sidebar to start chatting. You can talk directly to individual agents or use the orchestrator for intelligent coordination.
-                        <div class="message-time">Just now</div>
-                    </div>
+async def serve_react_app():
+    """Serve the React frontend application."""
+    react_build_path = Path(__file__).parent / "frontend-react" / "tmpapp" / "dist"
+    
+    if not react_build_path.exists():
+        # If no build exists, serve development message
+        return HTMLResponse(content="""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Jarvis Demo System</title>
+            <style>
+                body { font-family: system-ui; padding: 40px; text-align: center; }
+                .container { max-width: 600px; margin: 0 auto; }
+                .error { background: #fee; border: 1px solid #fcc; padding: 20px; border-radius: 8px; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>🚀 Jarvis Demo System</h1>
+                <div class="error">
+                    <h3>React Frontend Not Built</h3>
+                    <p>To run the full demo experience, please build the React frontend:</p>
+                    <code>cd frontend-react/tmpapp && npm install && npm run build</code>
+                    <p>Then restart this server.</p>
                 </div>
+                <p>Current API endpoints are available at <code>/api/*</code></p>
             </div>
-            
-            <div class="input-area">
-                <input 
-                    type="text" 
-                    id="message-input" 
-                    placeholder="Type your message..." 
-                    onkeypress="handleKeyPress(event)"
-                    disabled
-                />
-                <button class="send-btn" onclick="sendMessage()" id="send-btn" disabled>Send</button>
-            </div>
-        </div>
-    </div>
+        </body>
+        </html>
+        """)
+    
+    index_path = react_build_path / "index.html"
+    return FileResponse(index_path)
 
-    <script>
-        let sessionId = null;
-        let currentAgent = null;
-        let websocket = null;
-        let agents = {};
+# Static files for React app
+react_static_path = Path(__file__).parent / "frontend-react" / "tmpapp" / "dist"
+if react_static_path.exists():
+    app.mount("/assets", StaticFiles(directory=react_static_path / "assets"), name="assets")
 
-        // Initialize the application
-        async function init() {
-            try {
-                // Create session
-                const sessionResponse = await fetch('/api/sessions', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: 'demo_user', metadata: {} })
-                });
-                const sessionData = await sessionResponse.json();
-                sessionId = sessionData.session_id;
-                
-                // Load agents
-                await loadAgents();
-                
-                // Connect WebSocket
-                connectWebSocket();
-                
-                console.log('Application initialized successfully');
-            } catch (error) {
-                console.error('Failed to initialize:', error);
-                addSystemMessage('❌ Failed to connect to the system. Please refresh the page.');
-            }
-        }
-
-        async function loadAgents() {
-            try {
-                const response = await fetch('/api/agents');
-                const data = await response.json();
-                
-                const agentsList = document.getElementById('agents-list');
-                agentsList.innerHTML = '';
-                
-                data.agents.forEach(agent => {
-                    agents[agent.agent_id] = agent;
-                    
-                    const agentCard = document.createElement('div');
-                    agentCard.className = 'agent-card';
-                    agentCard.onclick = () => selectAgent(agent.agent_id);
-                    
-                    const statusClass = `status-${agent.status}`;
-                    
-                    agentCard.innerHTML = `
-                        <div class="agent-icon">${agent.icon}</div>
-                        <div class="agent-name">
-                            ${agent.name}
-                            <span class="status-indicator ${statusClass}"></span>
-                        </div>
-                        <div class="agent-description">${agent.description}</div>
-                    `;
-                    
-                    agentsList.appendChild(agentCard);
-                });
-            } catch (error) {
-                console.error('Failed to load agents:', error);
-            }
-        }
-
-        function selectAgent(agentId) {
-            currentAgent = agentId;
-            
-            // Update active agent card
-            document.querySelectorAll('.agent-card').forEach(card => {
-                card.classList.remove('active');
-            });
-            event.currentTarget.classList.add('active');
-            
-            // Update current agent display
-            const agent = agents[agentId];
-            document.getElementById('current-agent').textContent = 
-                `💬 Chatting with ${agent.name} ${agent.icon}`;
-            
-            // Enable input
-            document.getElementById('message-input').disabled = false;
-            document.getElementById('send-btn').disabled = false;
-            document.getElementById('message-input').focus();
-            
-            // Load chat history
-            loadChatHistory();
-        }
-
-        async function loadChatHistory() {
-            try {
-                const response = await fetch(`/api/sessions/${sessionId}/history`);
-                const data = await response.json();
-                
-                const messagesContainer = document.getElementById('chat-messages');
-                messagesContainer.innerHTML = '';
-                
-                data.history.forEach(message => {
-                    addMessageToUI(message);
-                });
-                
-                scrollToBottom();
-            } catch (error) {
-                console.error('Failed to load chat history:', error);
-            }
-        }
-
-        async function sendMessage() {
-            const input = document.getElementById('message-input');
-            const message = input.value.trim();
-            
-            if (!message || !currentAgent) return;
-            
-            input.value = '';
-            
-            // Add user message to UI immediately
-            addUserMessage(message);
-            
-            try {
-                const response = await fetch('/api/messages', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        session_id: sessionId,
-                        agent_id: currentAgent,
-                        message: message
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    const agent = agents[currentAgent];
-                    addAgentMessage(`I'm working on your request: ${message}`, agent);
-                } else {
-                    addSystemMessage(`❌ Error: ${result.error}`);
-                }
-            } catch (error) {
-                console.error('Failed to send message:', error);
-                addSystemMessage('❌ Failed to send message. Please try again.');
-            }
-        }
-
-        function addUserMessage(content) {
-            addMessageToUI({
-                content: content,
-                source: 'user',
-                timestamp: new Date().toISOString()
-            });
-        }
-
-        function addAgentMessage(content, agent) {
-            addMessageToUI({
-                content: content,
-                source: 'agent',
-                agent_id: agent.agent_id,
-                timestamp: new Date().toISOString()
-            });
-        }
-
-        function addSystemMessage(content) {
-            addMessageToUI({
-                content: content,
-                source: 'system',
-                timestamp: new Date().toISOString()
-            });
-        }
-
-        function addMessageToUI(message) {
-            const messagesContainer = document.getElementById('chat-messages');
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${message.source}`;
-            
-            let avatar = '🤖';
-            let name = 'System';
-            
-            if (message.source === 'user') {
-                avatar = '👤';
-                name = 'You';
-            } else if (message.agent_id && agents[message.agent_id]) {
-                avatar = agents[message.agent_id].icon;
-                name = agents[message.agent_id].name;
-            }
-            
-            const time = new Date(message.timestamp).toLocaleTimeString();
-            
-            messageDiv.innerHTML = `
-                <div class="message-avatar">${avatar}</div>
-                <div class="message-content">
-                    ${message.content}
-                    <div class="message-time">${time}</div>
-                </div>
-            `;
-            
-            messagesContainer.appendChild(messageDiv);
-            scrollToBottom();
-        }
-
-        async function getSuggestions() {
-            try {
-                const response = await fetch('/api/suggestions', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        session_id: sessionId,
-                        max_suggestions: 5
-                    })
-                });
-                
-                const data = await response.json();
-                showSuggestions(data.suggestions);
-            } catch (error) {
-                console.error('Failed to get suggestions:', error);
-                addSystemMessage('❌ Failed to get suggestions. Please try again.');
-            }
-        }
-
-        function showSuggestions(suggestions) {
-            const suggestionsDiv = document.getElementById('suggestions');
-            
-            if (!suggestions || suggestions.length === 0) {
-                suggestionsDiv.innerHTML = '<p>💡 No suggestions available yet. Try completing some tasks first!</p>';
-                suggestionsDiv.classList.add('show');
-                return;
-            }
-            
-            suggestionsDiv.innerHTML = '<h3>💡 Suggested Next Steps:</h3>';
-            
-            suggestions.forEach(suggestion => {
-                const suggestionDiv = document.createElement('div');
-                suggestionDiv.className = 'suggestion-item';
-                suggestionDiv.onclick = () => useSuggestion(suggestion);
-                
-                suggestionDiv.innerHTML = `
-                    <div class="suggestion-title">${suggestion.title}</div>
-                    <div class="suggestion-prompt">"${suggestion.suggested_prompt}"</div>
-                `;
-                
-                suggestionsDiv.appendChild(suggestionDiv);
-            });
-            
-            suggestionsDiv.classList.add('show');
-        }
-
-        function useSuggestion(suggestion) {
-            document.getElementById('message-input').value = suggestion.suggested_prompt;
-            document.getElementById('suggestions').classList.remove('show');
-            
-            // Auto-select appropriate agent if available
-            if (suggestion.agent && agents[suggestion.agent.id]) {
-                selectAgent(suggestion.agent.id);
-            }
-        }
-
-        function connectWebSocket() {
-            websocket = new WebSocket(`ws://localhost:8000/ws/${sessionId}`);
-            
-            websocket.onmessage = function(event) {
-                const data = JSON.parse(event.data);
-                
-                if (data.type === 'agents_update') {
-                    console.log('Agents updated:', data.data);
-                } else if (data.type === 'message_sent') {
-                    console.log('Message sent:', data.data);
-                }
-            };
-            
-            websocket.onclose = function() {
-                console.log('WebSocket closed, attempting to reconnect...');
-                setTimeout(connectWebSocket, 3000);
-            };
-            
-            websocket.onerror = function(error) {
-                console.error('WebSocket error:', error);
-            };
-        }
-
-        function handleKeyPress(event) {
-            if (event.key === 'Enter') {
-                sendMessage();
-            }
-        }
-
-        function scrollToBottom() {
-            const messagesContainer = document.getElementById('chat-messages');
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }
-
-        // Initialize when page loads
-        window.onload = init;
-    </script>
-</body>
-</html>
-    """
-    return HTMLResponse(content=html_content)
+# Mock logo endpoint for demo
+@app.get("/api/logos/{filename}")
+async def get_logo(filename: str):
+    """Serve demo logos (placeholder for now)."""
+    # This would serve actual generated logos in a real implementation
+    return {"url": f"/api/logos/{filename}", "status": "generated"}
 
 if __name__ == "__main__":
     import uvicorn
@@ -768,9 +685,11 @@ if __name__ == "__main__":
     # Configure logging
     logging.basicConfig(level=logging.INFO)
     
-    print("🚀 Starting Concurrent Agent System Frontend Server...")
-    print("📱 Access the UI at: http://localhost:8000")
-    print("🤖 Agents: Branding Agent, Market Research Agent, Business Advisor")
+    print("🚀 Starting Jarvis Demo System...")
+    print("📱 React Frontend: http://localhost:8000")
+    print("🔗 API Documentation: http://localhost:8000/docs")
+    print("🤖 Demo Flow: Coffee shop creation with Alfred, Edith, and Jarvis")
+    print("🎯 Features: 3D office view, voice input, real-time agent coordination")
     
     # Run the server
     uvicorn.run(

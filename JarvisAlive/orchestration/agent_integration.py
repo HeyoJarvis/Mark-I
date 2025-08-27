@@ -609,7 +609,7 @@ class ResponseFormatter:
         elif agent_id == "website_generator_agent":
             return self.format_website_response(response)
         else:
-            return self.format_general_response(response)
+            return self.format_general_response(response) 
     
     def format_website_response(self, response: AgentResponse) -> Dict[str, Any]:
         """Format website generator agent response for user display."""
