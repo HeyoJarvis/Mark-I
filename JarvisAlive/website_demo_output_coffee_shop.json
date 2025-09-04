@@ -20,49 +20,49 @@
   "website_structure": [
     {
       "page": "Home",
-      "purpose": "Convert visitors into cafe customers and bean purchasers",
+      "purpose": "Convert visitors into cafe customers and workspace users",
       "sections": [
         {
           "id": "hero",
           "type": "hero_section",
-          "headline": "Artisanal Coffee. Local Roasts. Perfect Workspace.",
-          "subheadline": "Experience hand-crafted beverages made from locally roasted beans in our welcoming cafe space",
+          "headline": "Artisanal Coffee & Creative Workspace in the Heart of Downtown",
+          "subheadline": "Locally roasted beans, handcrafted beverages, and a welcoming space for coffee lovers and remote workers",
           "primary_cta": "View Our Menu",
-          "secondary_cta": "Reserve Workspace",
+          "secondary_cta": "Book Workspace",
           "background_style": "image"
         },
         {
           "id": "value_proposition",
           "type": "features_section",
-          "title": "Why Coffee Enthusiasts Choose BrewCraft",
+          "title": "Why Choose BrewCraft",
           "items": [
             {
-              "title": "Locally Roasted Beans",
-              "description": "Fresh-roasted coffee sourced from local artisan roasters",
+              "title": "Locally Roasted",
+              "description": "Small-batch beans roasted weekly for peak freshness",
               "icon": "coffee_beans"
             },
             {
               "title": "Craft Preparation",
-              "description": "Each drink crafted with precision by trained baristas",
+              "description": "Expertly prepared beverages by certified baristas",
               "icon": "coffee_cup"
             },
             {
-              "title": "Ideal Workspace",
-              "description": "Fast Wi-Fi, plenty of outlets, and comfortable seating",
-              "icon": "laptop"
+              "title": "Productive Space",
+              "description": "High-speed WiFi, power outlets, and comfortable seating",
+              "icon": "workspace"
             }
           ]
         },
         {
           "id": "social_proof",
           "type": "testimonials_section",
-          "title": "From Our Community",
+          "title": "Community Love",
           "testimonials": [
             {
               "quote": "The perfect blend of amazing coffee and productive workspace. BrewCraft is my daily office!",
               "author": "Sarah Chen",
-              "title": "Freelance Designer",
-              "company": "Remote Professional"
+              "title": "Digital Nomad",
+              "company": "Freelance Designer"
             }
           ]
         },
@@ -71,46 +71,46 @@
           "type": "call_to_action",
           "headline": "Your Perfect Cup Awaits",
           "description": "Join us for your next coffee experience or workday",
-          "cta_text": "Find Our Location"
+          "cta_text": "Find Us Today"
         }
       ]
     }
   ],
   "homepage": {
-    "seo_title": "BrewCraft Coffee | Artisanal Coffee Shop & Workspace | Portland",
-    "meta_description": "Discover locally roasted coffee, craft beverages & comfortable workspace at BrewCraft. Perfect for coffee lovers & remote workers in Portland.",
+    "seo_title": "BrewCraft Coffee | Artisanal Coffee Shop & Coworking Space Downtown",
+    "meta_description": "Experience locally roasted coffee and a productive workspace at BrewCraft. Handcrafted beverages, fresh beans, and comfortable seating for remote workers.",
     "hero": {
-      "headline": "Where Craft Coffee Meets Productive Space",
-      "subheadline": "Your neighborhood destination for artisanal coffee and remote work",
+      "headline": "Craft Coffee & Creative Space",
+      "subheadline": "Where Quality Coffee Meets Productive Workspace",
       "primary_cta": "View Menu",
-      "secondary_cta": "Reserve Space",
-      "hero_copy": "Serving locally roasted beans and handcrafted beverages in a comfortable workspace environment"
+      "secondary_cta": "Book Workspace",
+      "hero_copy": "Join our community of coffee enthusiasts and remote professionals"
     },
     "value_propositions": [
-      "Locally sourced, freshly roasted coffee beans",
-      "Expert baristas crafting perfect beverages",
-      "Comfortable workspace with fast Wi-Fi"
+      "Locally roasted specialty coffee beans",
+      "Expert baristas and craft preparation",
+      "Comfortable workspace with high-speed WiFi"
     ],
     "features": [
       {
-        "title": "Craft Coffee Bar",
-        "description": "Full range of espresso drinks, pour-overs, and cold brew",
-        "benefit": "Experience exceptional coffee prepared your way"
+        "title": "Specialty Coffee Bar",
+        "description": "Handcrafted beverages using premium beans",
+        "benefit": "Experience exceptional coffee quality"
       },
       {
         "title": "Remote Work Haven",
-        "description": "Dedicated workspace areas with all amenities",
-        "benefit": "Stay productive in a coffee-friendly environment"
+        "description": "Dedicated workspace with amenities",
+        "benefit": "Stay productive in a coffee-inspired atmosphere"
       }
     ],
     "faq": [
       {
-        "question": "Do you offer workspace reservations?",
-        "answer": "Yes, we offer daily and monthly workspace packages with dedicated seating and power outlets"
+        "question": "Do you offer workspace memberships?",
+        "answer": "Yes, we offer daily passes and monthly memberships with premium amenities and coffee discounts."
       },
       {
-        "question": "Can I purchase your coffee beans to brew at home?",
-        "answer": "Absolutely! We sell our full selection of locally roasted beans by the bag"
+        "question": "Can I purchase your coffee beans for home brewing?",
+        "answer": "Absolutely! We sell our freshly roasted beans by the bag, with weekly rotating selections."
       }
     ]
   },
@@ -123,45 +123,53 @@
       "#FFFFFF"
     ],
     "typography": {
-      "primary_font": "Montserrat",
-      "secondary_font": "Open Sans",
-      "heading_style": "Bold, modern with subtle warmth",
-      "body_style": "Clean, approachable with excellent readability"
+      "primary_font": "Lato",
+      "secondary_font": "Playfair Display",
+      "heading_style": "Bold, sophisticated",
+      "body_style": "Clean, warm"
     },
     "tone_of_voice": {
-      "personality": "friendly expert",
-      "writing_style": "Warm, knowledgeable, and welcoming with a focus on craft and quality",
+      "personality": "friendly",
+      "writing_style": "Warm, knowledgeable, and welcoming with a focus on craft and community",
       "key_messages": [
         "Artisanal coffee experience",
         "Community-focused workspace",
-        "Local sourcing and expertise"
+        "Local roasting expertise"
       ]
     },
     "visual_style": {
-      "design_approach": "modern warm",
-      "imagery_style": "Rich, warm photography of coffee, workspace, and community",
+      "design_approach": "modern",
+      "imagery_style": "Warm, authentic coffee preparation and workspace photos",
       "layout_principles": [
         "Clean, uncluttered spaces",
-        "Warm color palette",
-        "Balance of coffee craft and workspace functionality"
+        "Rich coffee tones",
+        "Balanced white space"
       ]
     }
   },
   "seo_recommendations": {
     "target_keywords": [
-      "artisanal coffee shop portland",
+      "artisanal coffee shop downtown",
       "coffee shop workspace",
-      "local roasted coffee",
+      "locally roasted coffee beans",
       "remote work cafe"
     ],
-    "content_strategy": "Focus on craft coffee expertise and workspace benefits",
+    "content_strategy": "Focus on coffee expertise, workspace benefits, and local community",
     "technical_recommendations": [
       "Optimize for local search visibility",
       "Create location-specific landing pages",
-      "Implement schema markup for cafe business"
+      "Implement schema markup for cafe"
     ],
-    "local_seo": "Optimize Google Business Profile, encourage reviews, maintain consistent NAP across directories"
+    "local_seo": "Optimize Google Business Profile, encourage reviews, maintain consistent NAP"
   },
-  "website_generated_at": "2025-08-18T17:13:15.365695",
-  "analysis_type": "website_generation"
+  "website_generated_at": "2025-09-03T19:26:09.856146",
+  "analysis_type": "website_generation",
+  "saved_paths": {
+    "json": "website_outputs/website_brewcraft_coffee_20250903_192609.json",
+    "html": "website_outputs/website_brewcraft_coffee_20250903_192609_site"
+  },
+  "export_formats": [
+    "json",
+    "html"
+  ]
 }

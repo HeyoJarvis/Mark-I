@@ -129,8 +129,7 @@ function DemoRouteContent({ onOpenWebsiteDemo, onOpenWorkflowForm }: { onOpenWeb
   const recognitionRef = useRef<SimpleSpeechRecognition | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Use domains from branding data, fallback to default domains
-  const domains = brandingData?.domain_suggestions || ['firstpour.cafe', 'cornerbloom.coffee', 'sproutandsteam.cafe', 'graniteandgrind.com', 'Copper&Crumb.co']
+  const domains = ['firstpour.cafe', 'cornerbloom.coffee', 'sproutandsteam.cafe', 'graniteandgrind.com', 'Copper&Crumb.co']
 
   const logoReady = domainChoice['Copper&Crumb.co'] === 'accept'
 
@@ -730,16 +729,16 @@ function DemoRouteContent({ onOpenWebsiteDemo, onOpenWorkflowForm }: { onOpenWeb
 
               {/* Middle row */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                  {brandingData && (
+                  {(logoReady || brandingData) && (
                 <div className="rounded-3xl border border-neutral-200 bg-white shadow-sm p-6">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <Palette className="w-4 h-4 text-neutral-600" />
                       <div className="font-semibold">
-                        Brand identity created
+                        {brandingData ? 'Brand identity created' : 'Logo generated'}
                       </div>
                     </div>
-                    {!logoData?.logo_url && (
+                    {brandingData && !logoData?.logo_url && (
                       <button 
                         onClick={generateLogo}
                         disabled={isGeneratingLogo || !selectedDomain}
@@ -760,22 +759,26 @@ function DemoRouteContent({ onOpenWebsiteDemo, onOpenWorkflowForm }: { onOpenWeb
                       </div>
                     )}
                     <div className="text-sm text-neutral-600">
-                      <div>
-                        <div className="font-medium">{brandingData.brand_name}</div>
-                        <div className="text-xs text-neutral-500 mt-1">{brandingData.tagline}</div>
-                        {brandingData.colors && (
-                          <div className="flex gap-1 mt-2">
-                            {brandingData.colors.map((color: string, i: number) => (
-                              <div key={i} className="w-4 h-4 rounded border" style={{backgroundColor: color}}></div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                      {brandingData ? (
+                        <div>
+                          <div className="font-medium">{brandingData.brand_name}</div>
+                          <div className="text-xs text-neutral-500 mt-1">{brandingData.tagline}</div>
+                          {brandingData.colors && (
+                            <div className="flex gap-1 mt-2">
+                              {brandingData.colors.map((color: string, i: number) => (
+                                <div key={i} className="w-4 h-4 rounded border" style={{backgroundColor: color}}></div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        'coppercrumb.png • MJ will iterate variations'
+                      )}
                     </div>
                   </div>
                 </div>
                   )}
-                  <div className={`${brandingData ? 'md:col-span-2' : 'md:col-span-3'} rounded-3xl border border-neutral-200 bg-white shadow-sm p-6`}>
+                  <div className={`${(logoReady || brandingData) ? 'md:col-span-2' : 'md:col-span-3'} rounded-3xl border border-neutral-200 bg-white shadow-sm p-6`}>
                   <div className="flex items-center gap-2 mb-3">
                     <Globe className="w-4 h-4 text-neutral-600" />
                     <div className="font-semibold">Possible domains (GoDaddy)</div>

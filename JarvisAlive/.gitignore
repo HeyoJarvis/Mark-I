@@ -183,3 +183,4 @@ auth/
 local_settings.py
 .local/ 
 .env
+website_outputs/
