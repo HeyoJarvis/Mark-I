@@ -182,4 +182,13 @@ auth/
 # Local development
 local_settings.py
 .local/ 
-.env
+.env# Generated outputs
+generated_logos/*
+market_research_reports/*
+debug_logos
+demo_logos
+website_logos
+branding_reports
+workflow_reports
+website_outputs
+demo_logos
