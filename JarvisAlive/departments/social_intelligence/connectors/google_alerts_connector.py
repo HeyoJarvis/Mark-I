@@ -77,13 +77,30 @@ class GoogleAlertsConnector:
     async def _perform_google_search(self, query: str, max_results: int) -> List[Dict[str, Any]]:
         """Perform Google search and extract results."""
         
-        # For now, return mock results since direct Google scraping is complex
-        # In a real implementation, you would:
-        # 1. Use Google Custom Search API (requires API key)
-        # 2. Or implement web scraping with proper headers and rate limiting
-        # 3. Or integrate with existing Google Alerts RSS feeds
+        # Try multiple approaches for Google data
+        import os
         
-        logger.info(f"Performing Google search for: {query}")
+        # Option 1: Google Custom Search API (if configured)
+        google_api_key = os.getenv('GOOGLE_CUSTOM_SEARCH_API_KEY')
+        search_engine_id = os.getenv('GOOGLE_SEARCH_ENGINE_ID')
+        
+        if google_api_key and search_engine_id:
+            try:
+                return await self._google_custom_search(query, max_results, google_api_key, search_engine_id)
+            except Exception as e:
+                logger.error(f"Google Custom Search API failed: {e}")
+        
+        # Option 2: RSS Feed parsing (if configured)
+        rss_feeds = os.getenv('GOOGLE_ALERTS_RSS_FEEDS', '').split(',')
+        if rss_feeds and rss_feeds[0]:
+            try:
+                return await self._parse_google_alerts_rss(rss_feeds, query, max_results)
+            except Exception as e:
+                logger.error(f"RSS feed parsing failed: {e}")
+        
+        # Option 3: Fallback to mock data
+        logger.info(f"Using mock data for Google search: {query}")
+        logger.info("To use real Google data, configure GOOGLE_CUSTOM_SEARCH_API_KEY or GOOGLE_ALERTS_RSS_FEEDS")
         return self._get_mock_search_results(query, max_results)
     
     def _get_time_filter(self, hours: int) -> str:
@@ -187,11 +204,107 @@ class GoogleAlertsConnector:
             logger.error(f"RSS feed parsing failed: {e}")
             return []
     
+    async def _google_custom_search(self, query: str, max_results: int, api_key: str, search_engine_id: str) -> List[Dict[str, Any]]:
+        """Use Google Custom Search API for real search results."""
+        
+        try:
+            search_url = "https://www.googleapis.com/customsearch/v1"
+            params = {
+                'key': api_key,
+                'cx': search_engine_id,
+                'q': query,
+                'num': min(max_results, 10),  # Google Custom Search limit
+                'dateRestrict': 'd1'  # Last day
+            }
+            
+            async with self.session.get(search_url, params=params) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    results = []
+                    
+                    for item in data.get('items', []):
+                        results.append({
+                            'title': item.get('title', ''),
+                            'snippet': item.get('snippet', ''),
+                            'url': item.get('link', ''),
+                            'source': item.get('displayLink', ''),
+                            'date': datetime.now().isoformat()  # Google doesn't provide exact dates
+                        })
+                    
+                    logger.info(f"Google Custom Search API returned {len(results)} results")
+                    return results
+                else:
+                    logger.error(f"Google Custom Search API error: {response.status}")
+                    return []
+                    
+        except Exception as e:
+            logger.error(f"Google Custom Search API failed: {e}")
+            return []
+    
+    async def _parse_google_alerts_rss(self, rss_feeds: List[str], query: str, max_results: int) -> List[Dict[str, Any]]:
+        """Parse Google Alerts RSS feeds for mentions."""
+        
+        try:
+            import feedparser
+            results = []
+            
+            for rss_url in rss_feeds:
+                if not rss_url.strip():
+                    continue
+                    
+                logger.info(f"Parsing RSS feed: {rss_url}")
+                
+                # Parse RSS feed
+                feed = feedparser.parse(rss_url)
+                
+                for entry in feed.entries[:max_results//len(rss_feeds)]:
+                    # Check if entry matches query keywords
+                    if query.lower() in (entry.title + ' ' + entry.summary).lower():
+                        results.append({
+                            'title': entry.title,
+                            'snippet': entry.summary,
+                            'url': entry.link,
+                            'source': entry.get('source', 'Google Alerts'),
+                            'date': entry.get('published', datetime.now().isoformat())
+                        })
+            
+            logger.info(f"RSS parsing returned {len(results)} results")
+            return results[:max_results]
+            
+        except ImportError:
+            logger.error("feedparser library not available for RSS parsing")
+            return []
+        except Exception as e:
+            logger.error(f"RSS parsing failed: {e}")
+            return []
+    
     async def _parse_rss_feed(self, rss_url: str) -> List[SocialMention]:
         """Parse RSS feed and extract mentions."""
         
-        # Placeholder for RSS parsing implementation
-        # Would use feedparser library in real implementation
-        logger.info(f"Parsing RSS feed: {rss_url}")
-        
-        return []
+        try:
+            import feedparser
+            
+            feed = feedparser.parse(rss_url)
+            mentions = []
+            
+            for entry in feed.entries:
+                mention = SocialMention(
+                    content=entry.summary,
+                    title=entry.title,
+                    url=entry.link,
+                    author=entry.get('author', 'Google Alerts'),
+                    source=SocialSource.GOOGLE_ALERTS,
+                    platform_id=entry.get('id', entry.link),
+                    created_at=entry.get('published', datetime.now().isoformat())
+                )
+                mentions.append(mention)
+            
+            logger.info(f"Parsed {len(mentions)} mentions from RSS feed")
+            return mentions
+            
+        except ImportError:
+            logger.warning("feedparser library not available")
+            return []
+        except Exception as e:
+            logger.error(f"RSS parsing failed: {e}")
+            return []

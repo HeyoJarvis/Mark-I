@@ -24,15 +24,20 @@ class RedditConnector:
         try:
             # Try to import praw
             import praw
+            import os
             
-            # Reddit API credentials (can be set via config or env vars)
-            client_id = self.config.get('reddit_client_id', 'your_client_id')
-            client_secret = self.config.get('reddit_client_secret', 'your_client_secret')
-            user_agent = self.config.get('reddit_user_agent', 'SocialListening:v1.0')
+            # Reddit API credentials (from config or environment)
+            client_id = (self.config.get('reddit_client_id') or 
+                        os.getenv('REDDIT_CLIENT_ID', 'your_client_id'))
+            client_secret = (self.config.get('reddit_client_secret') or 
+                           os.getenv('REDDIT_CLIENT_SECRET', 'your_client_secret'))
+            user_agent = (self.config.get('reddit_user_agent') or 
+                         os.getenv('REDDIT_USER_AGENT', 'SocialListening:v1.0:JarvisAI'))
             
-            # For now, use read-only mode with placeholder credentials
-            if client_id == 'your_client_id':
+            # Check if real credentials are provided
+            if client_id == 'your_client_id' or not client_id:
                 logger.warning("Reddit API credentials not configured, using mock data")
+                logger.info("To use real Reddit data, add REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET to .env")
                 self.reddit = None
             else:
                 self.reddit = praw.Reddit(
@@ -40,7 +45,7 @@ class RedditConnector:
                     client_secret=client_secret,
                     user_agent=user_agent
                 )
-                logger.info("Reddit connector initialized successfully")
+                logger.info("Reddit connector initialized successfully with real API")
                 
         except ImportError:
             logger.warning("PRAW library not installed, using mock data")
