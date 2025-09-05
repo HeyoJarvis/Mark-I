@@ -384,6 +384,9 @@ Avoid unnecessary complexity - prefer simpler execution strategies when possible
 IMPORTANT: Only recommend ONE agent unless the user explicitly asks for multiple services.
 For website requests, use ONLY website_generator_agent unless user specifically mentions branding/logos.
 
+CRITICAL: If user wants to "generate leads", "find prospects", "find customers", or "mine leads", 
+this should ALWAYS map to lead_mining_agent with LEAD_GENERATION capability. This is an EXECUTABLE task, not consultative.
+
 IMPORTANT: If the request doesn't clearly map to available capabilities, set confidence_score below 0.5 
 and provide helpful suggestions for what the user might want instead. Include "off_key_request": true 
 in the execution_plan and suggest the closest available capabilities.

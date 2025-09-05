@@ -1,0 +1,8 @@
+# No qualified leads found
+# Search Criteria:
+# Company Size: 1000-50000 employees
+"# Job Titles: Vice President of Engineering, VP Engineering, VP of Engineering, Senior Vice President Engineering, EVP Engineering"
+"# Locations: United States, Canada, United Kingdom"
+"# Industries: Technology, Software, Manufacturing, Telecommunications, Financial Services, Healthcare Technology"
+""
+first_name,last_name,email,job_title,company_name,confidence_score

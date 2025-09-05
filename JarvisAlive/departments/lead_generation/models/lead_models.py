@@ -1,6 +1,6 @@
 """Data models for lead generation."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from enum import Enum
@@ -49,6 +49,10 @@ class ICPCriteria:
             self.exclude_domains = []
         if self.exclude_companies is None:
             self.exclude_companies = []
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert ICPCriteria to dictionary for JSON serialization."""
+        return asdict(self)
 
 
 @dataclass
@@ -87,6 +91,19 @@ class Lead:
             self.discovered_at = datetime.now().isoformat()
         if not self.last_updated:
             self.last_updated = datetime.now().isoformat()
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert Lead to dictionary for JSON serialization."""
+        data = asdict(self)
+        # Convert enums to strings
+        data['source'] = self.source.value
+        data['status'] = self.status.value
+        return data
+    
+    @property
+    def full_name(self) -> str:
+        """Get full name of the lead."""
+        return f"{self.first_name} {self.last_name}".strip()
 
 
 @dataclass
@@ -104,3 +121,12 @@ class LeadMiningResult:
     def __post_init__(self):
         if self.warnings is None:
             self.warnings = []
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert LeadMiningResult to dictionary for JSON serialization."""
+        data = asdict(self)
+        # Convert complex objects to serializable formats
+        data['qualified_leads'] = [lead.to_dict() for lead in self.qualified_leads]
+        data['search_criteria'] = self.search_criteria.to_dict()
+        data['sources_used'] = [source.value for source in self.sources_used]
+        return data

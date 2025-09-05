@@ -1,0 +1,8 @@
+# No qualified leads found
+# Search Criteria:
+# Company Size: 10-100 employees
+"# Job Titles: Founder, CEO, COO, Head of Operations, Head of Growth, VP Sales"
+"# Locations: United States, Canada, United Kingdom"
+"# Industries: Technology, SaaS, Digital Services, E-commerce, Professional Services"
+""
+first_name,last_name,email,job_title,company_name,confidence_score

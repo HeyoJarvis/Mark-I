@@ -47,6 +47,9 @@ from departments.lead_generation.lead_mining_agent import LeadMiningAgent
 from departments.social_intelligence.social_listening_agent import SocialListeningAgent
 from departments.content_marketing.content_marketing_agent import ContentMarketingAgent
 
+# Import context awareness
+from .context.universal_context_store import UniversalContextStore
+
 logger = logging.getLogger(__name__)
 
 
@@ -145,6 +148,9 @@ class SemanticOrchestrator:
         # Initialize semantic components
         self.semantic_parser = SemanticRequestParser(self.ai_engine)
         self.sandbox_manager = None  # Will be initialized in initialize() method
+        
+        # NEW: Initialize context store
+        self.context_store = UniversalContextStore(redis_client) if redis_client else None
         
         # State management
         self.active_workflows: Dict[str, SemanticWorkflowState] = {}
@@ -615,6 +621,28 @@ if __name__ == "__main__":
             result = await agent_instance.run(agent_state)
             
             logger.info(f"Real agent {agent_id} completed successfully")
+            
+            # NEW: Store context for future reference (non-breaking addition)
+            if self.context_store:
+                try:
+                    # Extract session_id from agent_state or result
+                    session_id = agent_state.get("session_id") or result.get("session_id", "unknown")
+                    
+                    logger.info(f"🔍 Storing context for {agent_id}, session: {session_id}")
+                    
+                    success = await self.context_store.store_agent_context(
+                        session_id=session_id,
+                        agent_id=agent_id,
+                        results=result
+                    )
+                    
+                    if success:
+                        logger.info(f"✅ Context stored successfully for {agent_id}")
+                    else:
+                        logger.warning(f"⚠️ Context storage returned False for {agent_id}")
+                        
+                except Exception as e:
+                    logger.error(f"Failed to store context for {agent_id}: {e}")
             
             # Convert agent result back to semantic format
             return self._convert_agent_result_to_semantic(result, agent_id)

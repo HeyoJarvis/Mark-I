@@ -1,0 +1,8 @@
+# No qualified leads found
+# Search Criteria:
+# Company Size: 100-5000 employees
+"# Job Titles: VP of Sales, Vice President of Sales, Vice President, Sales, SVP Sales, Senior Vice President of Sales, Head of Sales"
+"# Locations: United States, Canada"
+"# Industries: Technology, SaaS, Professional Services, Manufacturing, Financial Services"
+""
+first_name,last_name,email,job_title,company_name,confidence_score

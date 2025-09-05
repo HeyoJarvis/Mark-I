@@ -1,0 +1,4 @@
+first_name,last_name,email,job_title,company_name,company_domain,company_size,company_industry,company_location,linkedin_url,phone,confidence_score,status,source
+Chaimaa,Zirdane,chaimaa@contactout.com,Sales Manager,ContactOut,www.contactout.com,,,,http://www.linkedin.com/in/chaimaa-zirdane,,0.7,qualified,apollo
+Kevin,Shirley,kevin.shirley@insight.com,Sales Manager,Insight,www.insight.com,,,,http://www.linkedin.com/in/kshirley,,0.6,qualified,apollo
+Luc,Domissy,ld@aptean.com,Sales Manager,Aptean,www.aptean.com,,,,http://www.linkedin.com/in/lucdomissy,,0.7,qualified,apollo

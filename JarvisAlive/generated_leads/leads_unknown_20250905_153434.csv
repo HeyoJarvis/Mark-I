@@ -1,0 +1,18 @@
+first_name,last_name,email,job_title,company_name,company_domain,company_size,company_industry,company_location,linkedin_url,phone,confidence_score,status,source
+Roberto,Zarur,roberto.zarur@dematic.com,Sales Director,Dematic,www.dematic.com,,,,http://www.linkedin.com/in/roberto-zarur,,0.7,qualified,apollo
+Tyler,Hurley,thurley@oriontalent.com,Sales Director,Orion Talent,www.oriontalent.com,,,,http://www.linkedin.com/in/tylerjhurley,,0.8,qualified,apollo
+Sai,Gangula,sai.gangula@techdemocracy.com,Sales Director,TechDemocracy,www.techdemocracy.com,,,,http://www.linkedin.com/in/sai-kumar-gangula-7a2117120,,0.85,qualified,apollo
+Alexei,Pinal,alexei.p@claroty.com,Sales Director,Claroty,www.claroty.com,,,,http://www.linkedin.com/in/alexei-pinal,,0.9,qualified,apollo
+Tim,Myers,tim.myers@people.ai,Sales Director,People.ai,www.people.ai,,,,http://www.linkedin.com/in/timmyers1,,0.95,qualified,apollo
+Amol,Nemade,amol.nemade@octalsoft.com,Sales Director,Octalsoft LLC,www.octalsoft.com,,,,http://www.linkedin.com/in/amol-nemade-9207a915,,0.7,qualified,apollo
+Igor,Bogatov,ibogatov@blueviolet.net,Sales Director,BlueViolet Networks,www.bluevioletnetworks.com,,,,http://www.linkedin.com/in/igorbogatov,,0.7,qualified,apollo
+Justin,Myers,justin.myers@activeprospect.com,Sales Director,ActiveProspect,www.activeprospect.com,,,,http://www.linkedin.com/in/justinmarkmyers,,0.8,qualified,apollo
+Evan,Koransky,ekoransky@ten-x.com,Sales Director,Ten-X,www.ten-x.com,,,,http://www.linkedin.com/in/evankoransky,,0.6,qualified,apollo
+Pablo,Varela,pablo.varela@onboardlogistics.net,Sales Director,Onboard Logistics Group,www.onboardlogistics.net,,,,http://www.linkedin.com/in/procargobue,,0.5,qualified,apollo
+Parthasarathy,Thulasi,parthasarathy.thulasi@firecompass.com,Sales Director,FireCompass,www.firecompass.com,,,,http://www.linkedin.com/in/parthasarathythulasi,,0.7,qualified,apollo
+Jorge,Puente,jorge.puente@samsara.com,Sales Director,Samsara,www.samsara.com,,,,http://www.linkedin.com/in/jorge-puente-11638433,,0.9,qualified,apollo
+Remi,Pujol,remi@instrumental.com,Sales Director,Instrumental Inc.,www.instrumental.com,,,,http://www.linkedin.com/in/remi-pujol,,0.85,qualified,apollo
+Nick,Beecroft,nick.beecroft@televerde.com,Sales Director,Televerde,www.televerde.com,,,,http://www.linkedin.com/in/nickbeecroft-demandgeneration-software-saas-salesandmarketing,,0.8,qualified,apollo
+Nishay,Batool,nishay.batool@gomotive.com,Sales Director,Motive,www.gomotive.com,,,,http://www.linkedin.com/in/nishaybatool,,0.85,qualified,apollo
+Sarah,Qutub-Elchantaf,sarahelchantaf@optomi.com,Sales Director,Optomi Professional Services,www.optomiservices.com,,,,http://www.linkedin.com/in/sarahqutub,,0.75,qualified,apollo
+Paul,Coughlan,paul.coughlan@insightsoftware.com,Sales Director,insightsoftware,www.insightsoftware.com,,,,http://www.linkedin.com/in/paulcoughlan,,0.9,qualified,apollo

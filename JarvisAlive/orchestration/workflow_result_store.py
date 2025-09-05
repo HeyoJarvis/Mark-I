@@ -16,6 +16,25 @@ import redis.asyncio as redis
 
 from ai_engines.anthropic_engine import AnthropicEngine
 
+
+class WorkflowJSONEncoder(json.JSONEncoder):
+    """Custom JSON encoder for workflow results that handles complex objects."""
+    
+    def default(self, obj):
+        # Handle dataclass objects
+        if hasattr(obj, 'to_dict'):
+            return obj.to_dict()
+        elif hasattr(obj, '__dataclass_fields__'):
+            return asdict(obj)
+        # Handle enums
+        elif hasattr(obj, 'value'):
+            return obj.value
+        # Handle datetime objects
+        elif isinstance(obj, datetime):
+            return obj.isoformat()
+        
+        return super().default(obj)
+
 logger = logging.getLogger(__name__)
 
 
@@ -122,12 +141,12 @@ class WorkflowResultStore:
                 "workflow_id": workflow_result.workflow_id,
                 "session_id": workflow_result.session_id,
                 "agent_type": workflow_result.agent_type,
-                "results": json.dumps(workflow_result.results),
+                "results": json.dumps(workflow_result.results, cls=WorkflowJSONEncoder),
                 "timestamp": workflow_result.timestamp,
                 "business_goal": workflow_result.business_goal,
-                "extractable_info": json.dumps(workflow_result.extractable_info),
-                "deliverables": json.dumps(workflow_result.deliverables),
-                "artifacts": json.dumps(workflow_result.artifacts)
+                "extractable_info": json.dumps(workflow_result.extractable_info, cls=WorkflowJSONEncoder),
+                "deliverables": json.dumps(workflow_result.deliverables, cls=WorkflowJSONEncoder),
+                "artifacts": json.dumps(workflow_result.artifacts, cls=WorkflowJSONEncoder)
             })
             
             # Set expiration (30 days)
@@ -191,6 +210,18 @@ class WorkflowResultStore:
             if agent_type not in self.agent_type_index:
                 self.agent_type_index[agent_type] = []
             self.agent_type_index[agent_type].append(workflow_id)
+            
+            # NEW: Store context for universal context awareness
+            if hasattr(self, '_context_store') and self._context_store:
+                try:
+                    await self._context_store.store_agent_context(
+                        session_id=session_id,
+                        agent_id=agent_type,  # Don't add _agent suffix, it's already in agent_type
+                        results=results
+                    )
+                    logger.info(f"✅ Stored universal context for {agent_type}")
+                except Exception as e:
+                    logger.error(f"Failed to store universal context: {e}")
             
             # 🚀 NEW: Persist to Redis
             await self._save_to_redis(workflow_result)

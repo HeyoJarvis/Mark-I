@@ -26,6 +26,9 @@ from orchestration.intelligence.workflow_brain import WorkflowBrain
 from orchestration.langgraph.parallel_intelligent_graph import ParallelIntelligentGraphBuilder
 from departments.branding.branding_agent import BrandingAgent
 from departments.market_research.market_research_agent import MarketResearchAgent
+from departments.lead_generation.lead_mining_agent import LeadMiningAgent
+from departments.social_intelligence.social_listening_agent import SocialListeningAgent
+from departments.content_marketing.content_marketing_agent import ContentMarketingAgent
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +93,10 @@ async def startup_event():
         agent_config = {'anthropic_api_key': os.getenv('ANTHROPIC_API_KEY')}
         individual_agents = {
             'branding': BrandingAgent(agent_config),
-            'market_research': MarketResearchAgent(agent_config)
+            'market_research': MarketResearchAgent(agent_config),
+            'lead_mining': LeadMiningAgent(agent_config),
+            'social_intelligence': SocialListeningAgent(agent_config),
+            'content_marketing': ContentMarketingAgent(agent_config)
         }
         logger.info("✅ Individual agents initialized")
         
@@ -201,6 +207,33 @@ async def get_available_agents_list() -> List[Dict[str, Any]]:
             "capabilities": ["market_analysis", "competitor_research", "trend_analysis", "opportunity_assessment"],
             "status": "available",
             "icon": "📊"
+        },
+        {
+            "agent_id": "lead_mining",
+            "name": "🎯 Lead Mining Agent",
+            "description": "Finds and qualifies potential customers using Apollo API and AI analysis",
+            "type": "specialist",
+            "capabilities": ["lead_generation", "apollo_integration", "icp_analysis", "lead_qualification"],
+            "status": "available",
+            "icon": "🎯"
+        },
+        {
+            "agent_id": "social_intelligence",
+            "name": "📱 Social Intelligence",
+            "description": "Monitors social media for brand mentions, competitor discussions, and engagement opportunities",
+            "type": "specialist",
+            "capabilities": ["social_monitoring", "sentiment_analysis", "reddit_monitoring", "hackernews_monitoring"],
+            "status": "available",
+            "icon": "📱"
+        },
+        {
+            "agent_id": "content_marketing",
+            "name": "📝 Content Marketing",
+            "description": "Creates SEO-optimized content strategy and manages content distribution",
+            "type": "specialist",
+            "capabilities": ["content_creation", "seo_optimization", "wordpress_integration", "content_calendar"],
+            "status": "available",
+            "icon": "📝"
         }
     ]
 
@@ -213,11 +246,31 @@ async def send_agent_message(request: AgentMessageRequest):
         
         # Run the agent directly
         agent = individual_agents[request.agent_id]
-        state = {
-            'business_idea': request.message,
-            'user_request': request.message,
-            'session_id': request.session_id
-        }
+        
+        # Prepare state based on agent type
+        if request.agent_id == 'lead_mining':
+            state = {
+                'business_idea': request.message,
+                'user_request': request.message,
+                'session_id': request.session_id,
+                'target_industry': 'Technology',  # Default for testing
+                'company_size': '50-500 employees'
+            }
+        elif request.agent_id in ['social_intelligence', 'content_marketing']:
+            state = {
+                'business_idea': request.message,
+                'user_request': request.message,
+                'session_id': request.session_id,
+                'brand_name': 'Your Business',  # Default brand context
+                'target_audience': 'Business professionals'
+            }
+        else:
+            # Default state for branding and market research
+            state = {
+                'business_idea': request.message,
+                'user_request': request.message,
+                'session_id': request.session_id
+            }
         
         result = await agent.run(state)
         
@@ -430,6 +483,63 @@ def format_agent_response(agent_id: str, result: Dict[str, Any]) -> str:
         else:
             return "I'm analyzing your market research request. What specific aspects interest you?"
     
+    elif agent_id == 'lead_mining':
+        if result.get('mining_success', False):
+            leads_found = result.get('leads_found', 0)
+            qualified_leads = result.get('qualified_leads', [])
+            
+            response = f"🎯 **Lead Mining Complete!**\n\n"
+            response += f"**Leads Found:** {leads_found}\n"
+            response += f"**Apollo API Status:** Connected ✅\n"
+            
+            if qualified_leads:
+                response += f"\n**Top Qualified Leads:**\n"
+                for i, lead in enumerate(qualified_leads[:3], 1):
+                    response += f"{i}. **{lead.first_name} {lead.last_name}** - {lead.job_title}\n"
+                    response += f"   Company: {lead.company_name} ({lead.company_size} employees)\n"
+                    response += f"   Confidence: {lead.confidence_score:.1f}/1.0\n\n"
+            else:
+                response += f"**Note:** No leads met qualification criteria. Try broader search terms.\n"
+            
+            return response
+        else:
+            return "I'm searching for qualified leads using Apollo API. Please specify your target industry and company size."
+    
+    elif agent_id == 'social_intelligence':
+        if result.get('monitoring_success', False):
+            mentions = result.get('social_mentions', [])
+            sentiment_summary = result.get('sentiment_summary', {})
+            
+            response = f"📱 **Social Intelligence Complete!**\n\n"
+            response += f"**Mentions Found:** {len(mentions)}\n"
+            response += f"**Sentiment:** {sentiment_summary.get('overall_sentiment', 'N/A')}\n"
+            
+            if mentions:
+                response += f"\n**Recent Mentions:**\n"
+                for mention in mentions[:3]:
+                    response += f"• {mention.title} ({mention.source})\n"
+            
+            return response
+        else:
+            return "I'm monitoring social media for brand mentions and engagement opportunities."
+    
+    elif agent_id == 'content_marketing':
+        if result.get('content_success', False):
+            content_gaps = result.get('content_gaps', [])
+            content_calendar = result.get('content_calendar', {})
+            
+            response = f"📝 **Content Marketing Strategy Complete!**\n\n"
+            response += f"**Content Gaps Identified:** {len(content_gaps)}\n"
+            
+            if content_gaps:
+                response += f"\n**Priority Content Opportunities:**\n"
+                for gap in content_gaps[:3]:
+                    response += f"• {gap.title} (Priority: {gap.priority})\n"
+            
+            return response
+        else:
+            return "I'm analyzing your content marketing needs and creating a strategic plan."
+    
     return f"Response from {agent_id}: {str(result)}"
 
 @app.get("/api/sessions/{session_id}/history")
@@ -443,6 +553,45 @@ async def get_session_history(session_id: str):
         "history": session_data[session_id]['message_history'],
         "active_workflows": session_data[session_id]['active_workflows']
     }
+
+@app.get("/api/sessions/{session_id}/leads")
+async def get_session_leads(session_id: str):
+    """Get all leads found for a session."""
+    try:
+        # Check if workflow brain has workflow result store
+        if hasattr(workflow_brain, 'workflow_result_store'):
+            workflow_store = workflow_brain.workflow_result_store
+        else:
+            return {"leads": [], "message": "No workflow store available"}
+        
+        # Get all workflow results for this session
+        session_workflows = workflow_store.session_workflows.get(session_id, [])
+        all_leads = []
+        
+        for workflow_id in session_workflows:
+            workflow_result = workflow_store.results_cache.get(workflow_id)
+            if workflow_result and workflow_result.agent_type == "lead_mining_agent":
+                # Extract leads from results
+                results = workflow_result.results
+                qualified_leads = results.get('qualified_leads', [])
+                
+                # Convert leads to dict format if they're objects
+                for lead in qualified_leads:
+                    if hasattr(lead, 'to_dict'):
+                        all_leads.append(lead.to_dict())
+                    else:
+                        all_leads.append(lead)
+        
+        return {
+            "session_id": session_id,
+            "leads": all_leads,
+            "total_leads": len(all_leads),
+            "workflows_checked": len(session_workflows)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting leads for session {session_id}: {e}")
+        return {"error": str(e), "leads": []}
 
 # Serve the frontend
 @app.get("/", response_class=HTMLResponse)

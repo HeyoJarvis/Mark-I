@@ -1,0 +1,8 @@
+# No qualified leads found
+# Search Criteria:
+# Company Size: 500-5000 employees
+"# Job Titles: Vice President of Sales, VP Sales, SVP Sales, Senior Vice President, Sales, Head of Sales"
+"# Locations: United States, Canada, United Kingdom"
+"# Industries: E-commerce, Retail, Online Marketplace, Direct-to-Consumer (D2C)"
+""
+first_name,last_name,email,job_title,company_name,confidence_score

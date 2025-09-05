@@ -1,0 +1,4 @@
+first_name,last_name,email,job_title,company_name,company_domain,company_size,company_industry,company_location,linkedin_url,phone,confidence_score,status,source
+Jacob,Abrian,jacob.abrian@arabfashioncouncil.com,CEO - Chief Executive Officer,Arab Fashion Council,www.arabfashioncouncil.com,,,,http://www.linkedin.com/in/jacobabrian,,0.7,qualified,apollo
+Kumar,Rajagopalan,kumar@rai.net.in,Chief Executive Officer (CEO),Retailers Association of India (RAI),www.rai.net.in,,,,http://www.linkedin.com/in/kumar-rajagopalan,,0.8,qualified,apollo
+Ty,Edwards,ty@tatamifightwear.com,Chief Executive Officer (CEO),TATAMI FIGHTWEAR,www.tatamifightwear.com,,,,http://www.linkedin.com/in/ty-edwards-35303013,,0.7,qualified,apollo

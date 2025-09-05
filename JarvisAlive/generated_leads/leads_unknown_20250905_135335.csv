@@ -1,0 +1,8 @@
+# No qualified leads found
+# Search Criteria:
+# Company Size: 100-5000 employees
+"# Job Titles: Mechanical Engineer, Electrical Engineer, Software Engineer, Systems Engineer, Engineering Manager, Lead Engineer, Senior Engineer, Project Engineer"
+"# Locations: United States, Canada, United Kingdom, Germany"
+"# Industries: Manufacturing, Technology, Construction, Automotive, Aerospace, Industrial Equipment"
+""
+first_name,last_name,email,job_title,company_name,confidence_score

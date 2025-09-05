@@ -1,0 +1,8 @@
+# No qualified leads found
+# Search Criteria:
+# Company Size: 100-5000 employees
+"# Job Titles: VP of Sales, Vice President Sales, VP Global Sales, VP Enterprise Sales, Vice President Revenue, SVP Sales"
+"# Locations: United States, Canada, United Kingdom"
+"# Industries: Software, SaaS, Information Technology, Cloud Computing, Technology Services, Enterprise Software"
+""
+first_name,last_name,email,job_title,company_name,confidence_score

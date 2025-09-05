@@ -12,9 +12,14 @@ class LeadValidator:
     """Validates lead data quality and accuracy."""
     
     def is_valid_email(self, email: str) -> bool:
-        """Validate email format."""
+        """Validate email format - accept locked emails from Apollo."""
         if not email:
             return False
+        
+        # Accept Apollo's locked emails as valid (they're real prospects, just need credits to unlock)
+        if "email_not_unlocked@domain.com" in email:
+            return True
+        
         pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
         return bool(re.match(pattern, email))
     
@@ -50,7 +55,10 @@ class LeadValidator:
         
         # Email validation (40% of score)
         if self.is_valid_email(lead.email):
-            score += 0.4
+            if "email_not_unlocked@domain.com" in lead.email:
+                score += 0.35  # Slightly lower for locked emails, but still good
+            else:
+                score += 0.4   # Full score for unlocked emails
         
         # Domain validation (20% of score)
         if self.is_valid_domain(lead.company_domain):

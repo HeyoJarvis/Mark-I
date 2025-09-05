@@ -17,6 +17,7 @@ import asyncio
 import sys
 import os
 import json
+import logging
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from dotenv import load_dotenv
@@ -36,6 +37,9 @@ from orchestration.semantic_universal_orchestrator import (
 from orchestration.universal_orchestrator import UniversalOrchestratorConfig
 from orchestration.response_analyzer import ContextAwareResponseAnalyzer, ResponseType, ResponseDecision
 from orchestration.workflow_result_store import WorkflowResultStore
+from orchestration.context.universal_context_store import UniversalContextStore
+from orchestration.context.context_analyzer import ContextAnalyzer, ContextReference
+from orchestration.context.context_response_generator import ContextAwareResponseGenerator
 from ai_engines.anthropic_engine import AnthropicEngine
 from ai_engines.base_engine import AIEngineConfig
 
@@ -227,6 +231,12 @@ class SemanticChatInterface:
         self.response_analyzer = None  # Will be initialized in initialize()
         self.ai_engine = None  # Will be set during initialization
         
+        # Universal context awareness components
+        self.context_store = None
+        self.context_analyzer = None
+        self.context_response_generator = None
+        self.logger = logging.getLogger(__name__)
+        
     async def initialize(self):
         """Initialize the chat interface with semantic orchestration."""
         print("🚀 Initializing Semantic Chat Interface...")
@@ -259,6 +269,17 @@ class SemanticChatInterface:
             await self.workflow_store.initialize()
             self.response_analyzer = ContextAwareResponseAnalyzer(ai_engine)
             
+            # Initialize universal context awareness
+            if self.workflow_store and self.workflow_store.redis_client:
+                self.context_store = UniversalContextStore(self.workflow_store.redis_client)
+                self.context_analyzer = ContextAnalyzer(ai_engine)
+                self.context_response_generator = ContextAwareResponseGenerator(ai_engine)
+                
+                # Link context store to workflow store for automatic context saving
+                self.workflow_store._context_store = self.context_store
+                
+                print("✅ Universal context awareness initialized")
+            
             print("✅ Semantic orchestration initialized")
             print("✅ Context-aware response system initialized")
             print(f"✅ Mode: {self.mode.value}")
@@ -287,8 +308,14 @@ class SemanticChatInterface:
                     return '{"business_goal": "Create professional logo", "user_intent_summary": "Logo design needed", "primary_capabilities": ["logo_generation"], "secondary_capabilities": ["brand_creation"], "recommended_agents": ["logo_generation_agent"], "execution_strategy": "single_agent", "execution_plan": {"description": "Direct logo generation"}, "extracted_parameters": {"business_type": "startup"}, "business_context": {"industry": "creative"}, "user_preferences": {"style": "professional"}, "confidence_score": 0.9, "reasoning": "Clear logo request"}'
                 elif "market" in prompt.lower() or "research" in prompt.lower():
                     return '{"business_goal": "Conduct market research", "user_intent_summary": "Market analysis needed", "primary_capabilities": ["market_analysis"], "secondary_capabilities": [], "recommended_agents": ["market_research_agent"], "execution_strategy": "single_agent", "execution_plan": {"description": "Market research analysis"}, "extracted_parameters": {"industry": "technology"}, "business_context": {"focus": "competitive_analysis"}, "user_preferences": {"depth": "comprehensive"}, "confidence_score": 0.85, "reasoning": "Market research request"}'
+                elif "lead" in prompt.lower() or "prospect" in prompt.lower() or "customer" in prompt.lower():
+                    return '{"business_goal": "Generate qualified leads", "user_intent_summary": "Lead generation needed", "primary_capabilities": ["lead_generation"], "secondary_capabilities": [], "recommended_agents": ["lead_mining_agent"], "execution_strategy": "single_agent", "execution_plan": {"description": "Mine qualified leads using Apollo API"}, "extracted_parameters": {"target_industry": "technology", "company_size": "50-500"}, "business_context": {"lead_source": "apollo"}, "user_preferences": {"qualification": "high"}, "confidence_score": 0.9, "reasoning": "Lead generation request"}'
+                elif "social" in prompt.lower() or "monitor" in prompt.lower() or "mention" in prompt.lower():
+                    return '{"business_goal": "Monitor social media", "user_intent_summary": "Social intelligence needed", "primary_capabilities": ["social_monitoring"], "secondary_capabilities": [], "recommended_agents": ["social_listening_agent"], "execution_strategy": "single_agent", "execution_plan": {"description": "Monitor social platforms for brand mentions"}, "extracted_parameters": {"platforms": ["reddit", "hackernews"]}, "business_context": {"monitoring_type": "brand_mentions"}, "user_preferences": {"sentiment": "all"}, "confidence_score": 0.85, "reasoning": "Social monitoring request"}'
+                elif "content" in prompt.lower() or "blog" in prompt.lower() or "article" in prompt.lower():
+                    return '{"business_goal": "Create content strategy", "user_intent_summary": "Content marketing needed", "primary_capabilities": ["content_creation"], "secondary_capabilities": [], "recommended_agents": ["content_marketing_agent"], "execution_strategy": "single_agent", "execution_plan": {"description": "Develop SEO-optimized content strategy"}, "extracted_parameters": {"content_type": "blog_post"}, "business_context": {"seo_focus": true}, "user_preferences": {"style": "professional"}, "confidence_score": 0.85, "reasoning": "Content marketing request"}'
                 else:
-                    return "I understand you'd like help with your business. Could you be more specific about what you need? I can help with logos, market research, branding, websites, and more."
+                    return "I understand you'd like help with your business. Could you be more specific about what you need? I can help with logos, market research, branding, websites, lead generation, social monitoring, and content marketing."
         
         # Create a simple mock jarvis that doesn't need OrchestratorConfig
         mock_ai_engine = MockAIEngine()
@@ -373,6 +400,16 @@ class SemanticChatInterface:
     async def _handle_message_intelligently(self, message: str, session: ChatSession) -> str:
         """Intelligent message handling with full context awareness."""
         
+        # NEW: Check for context references FIRST
+        if self.context_analyzer:
+            try:
+                context_ref = await self.context_analyzer.analyze_context_needs(message, session.session_id)
+                
+                if context_ref.references_previous_work and context_ref.confidence > 0.7:
+                    return await self._handle_context_aware_message(message, session, context_ref)
+            except Exception as e:
+                self.logger.error(f"Context analysis failed: {e}")
+        
         if not self.response_analyzer:
             # Fallback to business request handling if analyzer not available
             return await self._handle_business_request(message, session)
@@ -398,6 +435,51 @@ class SemanticChatInterface:
                 
         except Exception as e:
             # Fallback to business request handling
+            return await self._handle_business_request(message, session)
+    
+    async def _handle_context_aware_message(
+        self, 
+        message: str, 
+        session: ChatSession, 
+        context_ref: ContextReference
+    ) -> str:
+        """NEW: Handle messages that reference previous work."""
+        
+        try:
+            # Retrieve relevant context
+            context_data = {}
+            
+            for context_type in context_ref.context_types:
+                # Map recency requirement to hours
+                hours_back = {
+                    "current_session": 2,
+                    "today": 24,
+                    "this_week": 168
+                }.get(context_ref.recency_requirement, 2)
+                
+                agent_context = await self.context_store.get_recent_context(
+                    session.session_id, 
+                    context_type, 
+                    hours_back
+                )
+                
+                if agent_context:
+                    context_data[context_type] = agent_context
+            
+            if not context_data:
+                context_types_str = "/".join(context_ref.context_types)
+                return f"I don't see any recent {context_types_str} work in this session. Could you be more specific about what you're referring to?"
+            
+            # Generate context-aware response
+            return await self.context_response_generator.generate_contextual_response(
+                message, 
+                context_data, 
+                context_ref.cross_agent_synthesis
+            )
+                
+        except Exception as e:
+            self.logger.error(f"Context-aware response failed: {e}")
+            # Fallback to normal handling
             return await self._handle_business_request(message, session)
     
     async def _provide_contextual_answer(
@@ -677,6 +759,7 @@ Answer naturally and helpfully:
         # Add results if available
         if result.get("results"):
             response_parts.append("\n📋 **Results:**")
+            
             results_summary = self._summarize_results(result["results"])
             response_parts.append(results_summary)
         
@@ -733,7 +816,32 @@ Answer naturally and helpfully:
         
         summary_parts = []
         
-        # Look for specific result types
+        # Check for lead mining results - they might be nested under agent key
+        lead_mining_data = None
+        
+        # Check top level first
+        if "qualified_leads" in results or "leads_found" in results:
+            lead_mining_data = results
+        
+        # Check nested under lead_mining_agent key
+        elif "lead_mining_agent" in results:
+            lead_mining_data = results["lead_mining_agent"]
+        
+        # Check nested under results.lead_mining_agent key (semantic orchestrator structure)
+        elif "results" in results and isinstance(results["results"], dict) and "lead_mining_agent" in results["results"]:
+            lead_mining_data = results["results"]["lead_mining_agent"]
+        
+        # Check if any key contains lead mining results
+        else:
+            for key, value in results.items():
+                if isinstance(value, dict) and ("qualified_leads" in value or "mining_success" in value):
+                    lead_mining_data = value
+                    break
+        
+        if lead_mining_data:
+            return self._format_lead_mining_results(lead_mining_data)
+        
+        # Look for other specific result types
         if "logo_url" in str(results):
             summary_parts.append("• Logo design completed")
         if "market_analysis" in str(results):
@@ -742,11 +850,69 @@ Answer naturally and helpfully:
             summary_parts.append("• Brand strategy developed")
         if "website" in str(results):
             summary_parts.append("• Website created")
+        if "social_mentions" in str(results):
+            summary_parts.append("• Social media monitoring completed")
+        if "content_calendar" in str(results):
+            summary_parts.append("• Content marketing strategy ready")
         
         if summary_parts:
             return "\n".join(summary_parts)
         else:
             return f"• Processing completed ({len(results)} deliverables ready)"
+    
+    def _format_lead_mining_results(self, results: Dict[str, Any]) -> str:
+        """Format lead mining results for chat display."""
+        qualified_leads = results.get("qualified_leads", [])
+        leads_found = results.get("leads_found", 0)
+        mining_result = results.get("mining_result", {})
+        
+        response_parts = []
+        response_parts.append(f"🎯 **Lead Mining Complete!**")
+        response_parts.append(f"**Apollo API Status:** ✅ Connected")
+        response_parts.append(f"**Raw Leads Found:** {mining_result.get('leads_found', 0) if isinstance(mining_result, dict) else leads_found}")
+        response_parts.append(f"**Qualified Leads:** {len(qualified_leads)}")
+        
+        if qualified_leads:
+            response_parts.append(f"\n📋 **Your Qualified Leads:**")
+            
+            # Show up to 5 leads with full details
+            for i, lead in enumerate(qualified_leads[:5], 1):
+                if hasattr(lead, 'to_dict'):
+                    lead_data = lead.to_dict()
+                elif isinstance(lead, dict):
+                    lead_data = lead
+                else:
+                    continue
+                
+                name = f"{lead_data.get('first_name', '')} {lead_data.get('last_name', '')}".strip()
+                title = lead_data.get('job_title', 'Unknown Title')
+                company = lead_data.get('company_name', 'Unknown Company')
+                email = lead_data.get('email', 'Email not available')
+                confidence = lead_data.get('confidence_score', 0)
+                
+                response_parts.append(f"\n**{i}. {name}**")
+                response_parts.append(f"   📧 Email: {email}")
+                response_parts.append(f"   💼 Title: {title}")
+                response_parts.append(f"   🏢 Company: {company}")
+                response_parts.append(f"   ⭐ Confidence: {confidence:.1f}/1.0")
+            
+            if len(qualified_leads) > 5:
+                response_parts.append(f"\n... and {len(qualified_leads) - 5} more leads")
+                
+        else:
+            response_parts.append(f"\n⚠️ **No leads met qualification criteria.**")
+            response_parts.append(f"📊 **Raw data found:** {mining_result.get('leads_found', 0) if isinstance(mining_result, dict) else 'Unknown'} leads from Apollo")
+            response_parts.append(f"💡 **Suggestion:** Try broader criteria or lower qualification threshold")
+        
+        # Add file output information
+        csv_file = results.get("leads_csv_file")
+        if csv_file:
+            response_parts.append(f"\n💾 **CSV Export:** {csv_file}")
+            response_parts.append(f"📂 **Open this file** in Excel/Sheets to view all lead details")
+        else:
+            response_parts.append(f"\n💾 **Lead data stored in Redis** - Use `python view_leads.py` to see all details")
+        
+        return "\n".join(response_parts)
     
     async def interactive_chat(self):
         """Start interactive chat session."""

@@ -1,0 +1,24 @@
+first_name,last_name,email,job_title,company_name,company_domain,company_size,company_industry,company_location,linkedin_url,phone,confidence_score,status,source
+Aaron,Browning,aaron@frontspin.com,VP of Sales,FrontSpin,www.frontspin.com,,,,http://www.linkedin.com/in/aaronbrowning1,,0.8,qualified,apollo
+Tyler,Groepper,tyler@zeemee.com,Vice President of Sales,ZeeMee,www.zeemee.com,,,,http://www.linkedin.com/in/tylergroepper,,0.7,qualified,apollo
+Ted,Oiler,toiler@volt.com,Vice President of Sales,Volt,www.volt.com,,,,http://www.linkedin.com/in/tedoiler,,0.6,qualified,apollo
+Vikram,Kumar,email_not_unlocked@domain.com,Vice President of Sales,AMA Global Technology Inc,www.amaglobaltech.com,,,,http://www.linkedin.com/in/vikram-kumar-a4b697b,,0.7,qualified,apollo
+Justin,Zhen,jz@qloo.com,Vice President of Sales,Qloo,www.qloo.com,,,,http://www.linkedin.com/in/jzhen,,0.7,qualified,apollo
+Matthew,Karrandja,matt.karrandja@lhpes.com,Vice President of Sales,LER TechForce,www.lertechforce.com,,,,http://www.linkedin.com/in/karrandja,,0.8,qualified,apollo
+Neeraj,Priyadarshi,neeraj@nytp.com,Vice President of Sales,New York Technology Partners,www.nytp.com,,,,http://www.linkedin.com/in/neeraj-p-b9b0a810,,0.8,qualified,apollo
+Jim,Ihasz,jihasz@newgentechnologies.com,Vice President of Sales,NewGen Technologies Inc.,www.newgentechnologies.com,,,,http://www.linkedin.com/in/jimihasz,,0.7,qualified,apollo
+Tracy,Aston-Martin,tracy@crewos.io,Vice President of Sales,crewOS,www.crewos.io,,,,http://www.linkedin.com/in/tracy-a-738460105,,0.8,qualified,apollo
+Lauren,Schmidt,lschmidt@caseworthy.com,Vice President of Sales,"CaseWorthy, Inc.",www.caseworthy.com,,,,http://www.linkedin.com/in/laurenschmidt327,,0.8,qualified,apollo
+Andrew,Metz,andrew.metz@zywave.com,Vice President of Sales,Zywave,www.zywave.com,,,,http://www.linkedin.com/in/andrew-metz-1050305,,0.8,qualified,apollo
+Sachin,Wadekar,sachin.wadekar@emergys.com,Vice President - Sales,Emergys,www.emergys.com,,,,http://www.linkedin.com/in/sachinwadekar,,0.7,qualified,apollo
+Michael,Abenhaim,michael.abenhaim@ooma.com,"Vice President, Sales","Ooma, Inc.",www.ooma.com,,,,http://www.linkedin.com/in/michaelabenhaim,,0.8,qualified,apollo
+Jim,Vicatos,jim@choiceiot.com,Vice President of Sales,Choice IoT,www.choiceiot.com,,,,http://www.linkedin.com/in/jim-vicatos-0108389,,0.6,qualified,apollo
+Matt,Wolosz,mwolosz@atdata.com,Vice President Sales,AtData,www.atdata.com,,,,http://www.linkedin.com/in/mattwolosz,,0.7,qualified,apollo
+Khurram,Qazi,khurram.qazi@raaweek12.com,Vice President of Sales,RaaWee K12 Attendance+,www.raaweek12.com,,,,http://www.linkedin.com/in/khurram-iqbal-qazi-0518b34b,,0.6,qualified,apollo
+Moe,Yousef,myousef@missioncloud.com,Vice President of Sales,"Mission, a CDW Company",www.missioncloud.com,,,,http://www.linkedin.com/in/myousef1,,0.8,qualified,apollo
+Cody,Voorhees,cody.voorhees@promptemr.com,VP of Sales,Prompt Health,www.promptemr.com,,,,http://www.linkedin.com/in/codyvoorhees,,0.7,qualified,apollo
+Nicholas,Belsito,nicholas.belsito@ncrvoyix.com,Vice President of Sales,NCR Voyix,www.ncrvoyix.com,,,,http://www.linkedin.com/in/nicholasbelsito,,0.7,qualified,apollo
+Bobby,Dysart,bobby@compa.ai,VP of Sales,Compa,www.compa.ai,,,,http://www.linkedin.com/in/bobbydysart,,0.8,qualified,apollo
+Joe,Venuti,joe.venuti@gmi.com,Vice President of Sales,GMI - Global Market Innovators,www.gmi.com,,,,http://www.linkedin.com/in/joe-venuti-04b34b49,,0.7,qualified,apollo
+Bryan,Mccreedy,bryan@hivepro.com,Vice President of Sales,"Hive Pro, Inc.",www.hivepro.com,,,,http://www.linkedin.com/in/bryanmccreedy,,0.8,qualified,apollo
+Ramana,Devulapally,ramana.devulapally@icsinc-usa.com,Vice President of Sales,Infinite Computer Solutions,www.infinite.com,,,,http://www.linkedin.com/in/ramana-rao-devulapally-34227a22,,0.8,qualified,apollo

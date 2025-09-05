@@ -120,6 +120,20 @@ class SemanticJarvis:
                 user_request, session_id, conversation_context
             )
             
+            # NEW: Store context from completed workflow
+            if self.semantic_orchestrator.context_store and workflow_state.overall_status.value == "completed":
+                for agent_state in workflow_state.agent_states:
+                    if agent_state.status == "completed" and agent_state.result:
+                        try:
+                            await self.semantic_orchestrator.context_store.store_agent_context(
+                                session_id=session_id,
+                                agent_id=agent_state.agent_id,
+                                results=agent_state.result
+                            )
+                            logger.info(f"✅ Stored context for {agent_state.agent_id}")
+                        except Exception as e:
+                            logger.error(f"Failed to store context for {agent_state.agent_id}: {e}")
+            
             # Convert to standard response format
             return self._convert_to_standard_response(workflow_state)
             

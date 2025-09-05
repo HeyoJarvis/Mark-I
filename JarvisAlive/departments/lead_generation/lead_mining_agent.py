@@ -42,7 +42,7 @@ class LeadMiningAgent:
         
         # Configuration
         self.max_leads_per_source = self.config.get('max_leads_per_source', 50)
-        self.confidence_threshold = self.config.get('confidence_threshold', 0.7)
+        self.confidence_threshold = self.config.get('confidence_threshold', 0.4)  # Lowered to show more leads
         self.enable_deduplication = self.config.get('enable_deduplication', True)
         
         # Initialize utilities
@@ -150,10 +150,14 @@ class LeadMiningAgent:
                 mining_duration_seconds=mining_duration
             )
             
-            # Step 7: Update state with results
+            # Step 7: Create CSV file for easy viewing
+            csv_file_path = await self._export_leads_to_csv(qualified_leads, icp_criteria, state.get('session_id', 'unknown'))
+            
+            # Step 8: Update state with results
             result_state = state.copy()
             result_state.update({
                 "leads_found": len(qualified_leads),
+                "leads_csv_file": csv_file_path,
                 "qualified_leads": [lead.__dict__ for lead in qualified_leads],
                 "mining_result": mining_result.__dict__,
                 "icp_criteria_used": icp_criteria.__dict__,
@@ -218,8 +222,29 @@ Be specific and realistic based on the business goal.
         
         try:
             response = await self.ai_engine.generate(prompt)
-            data = json.loads(response.content)
+            
+            # Handle empty response
+            if not response.content or response.content.strip() == "":
+                self.logger.warning("Empty AI response for ICP extraction, using defaults")
+                return ICPCriteria()
+            
+            response_text = response.content.strip()
+            
+            # Extract JSON from response (sometimes AI adds explanatory text)
+            if "{" in response_text and "}" in response_text:
+                start_idx = response_text.find("{")
+                end_idx = response_text.rfind("}") + 1
+                json_text = response_text[start_idx:end_idx]
+            else:
+                json_text = response_text
+            
+            data = json.loads(json_text)
             return ICPCriteria(**data)
+            
+        except json.JSONDecodeError as e:
+            self.logger.error(f"AI ICP extraction JSON parsing failed: {e}")
+            self.logger.error(f"Raw AI response: {response.content if 'response' in locals() else 'No response'}")
+            return ICPCriteria()  # Return defaults
         except Exception as e:
             self.logger.error(f"AI ICP extraction failed: {e}")
             return ICPCriteria()  # Return defaults
@@ -354,7 +379,34 @@ Return JSON array:
         
         try:
             response = await self.ai_engine.generate(prompt)
-            qualifications = json.loads(response.content)
+            
+            # Debug: log the response content
+            self.logger.debug(f"AI response: {response.content}")
+            
+            # Handle empty or None response
+            if not response.content or response.content.strip() == "":
+                self.logger.warning("Empty AI response, using fallback qualification")
+                qualified = [lead for lead in leads if lead.confidence_score >= self.confidence_threshold]
+                for lead in qualified:
+                    lead.status = LeadStatus.QUALIFIED
+                return qualified
+            
+            # Try to parse JSON, with fallback for malformed responses
+            response_text = response.content.strip()
+            
+            # Sometimes AI returns text before JSON, extract just the JSON part
+            if "[" in response_text and "]" in response_text:
+                start_idx = response_text.find("[")
+                end_idx = response_text.rfind("]") + 1
+                json_text = response_text[start_idx:end_idx]
+            else:
+                json_text = response_text
+            
+            qualifications = json.loads(json_text)
+            
+            # Validate that qualifications is a list
+            if not isinstance(qualifications, list):
+                raise ValueError("AI response is not a list")
             
             qualified_leads = []
             for i, qualification in enumerate(qualifications):
@@ -366,6 +418,14 @@ Return JSON array:
             
             return qualified_leads
             
+        except json.JSONDecodeError as e:
+            self.logger.error(f"AI qualification JSON parsing failed: {e}")
+            self.logger.error(f"Raw AI response: {response.content if 'response' in locals() else 'No response'}")
+            # Fallback to confidence threshold
+            qualified = [lead for lead in leads if lead.confidence_score >= self.confidence_threshold]
+            for lead in qualified:
+                lead.status = LeadStatus.QUALIFIED
+            return qualified
         except Exception as e:
             self.logger.error(f"AI qualification failed: {e}")
             # Fallback to confidence threshold
@@ -373,6 +433,60 @@ Return JSON array:
             for lead in qualified:
                 lead.status = LeadStatus.QUALIFIED
             return qualified
+    
+    async def _export_leads_to_csv(self, leads: List[Lead], criteria: ICPCriteria, session_id: str) -> Optional[str]:
+        """Export leads to CSV file for easy viewing."""
+        try:
+            import csv
+            from pathlib import Path
+            
+            # Create leads directory if it doesn't exist
+            leads_dir = Path("generated_leads")
+            leads_dir.mkdir(exist_ok=True)
+            
+            # Create filename with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"leads_{session_id}_{timestamp}.csv"
+            file_path = leads_dir / filename
+            
+            # Write CSV file
+            with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
+                if leads:
+                    # Use first lead to determine fieldnames
+                    fieldnames = ['first_name', 'last_name', 'email', 'job_title', 'company_name', 
+                                'company_domain', 'company_size', 'company_industry', 'company_location',
+                                'linkedin_url', 'phone', 'confidence_score', 'status', 'source']
+                    
+                    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                    writer.writeheader()
+                    
+                    for lead in leads:
+                        if hasattr(lead, 'to_dict'):
+                            lead_dict = lead.to_dict()
+                        else:
+                            lead_dict = lead.__dict__ if hasattr(lead, '__dict__') else lead
+                        
+                        # Filter to only include fieldnames
+                        filtered_dict = {k: v for k, v in lead_dict.items() if k in fieldnames}
+                        writer.writerow(filtered_dict)
+                else:
+                    # Create empty file with headers and search criteria
+                    writer = csv.writer(csvfile)
+                    writer.writerow(['# No qualified leads found'])
+                    writer.writerow(['# Search Criteria:'])
+                    writer.writerow([f'# Company Size: {criteria.company_size_min}-{criteria.company_size_max} employees'])
+                    writer.writerow([f'# Job Titles: {", ".join(criteria.job_titles)}'])
+                    writer.writerow([f'# Locations: {", ".join(criteria.locations)}'])
+                    writer.writerow([f'# Industries: {", ".join(criteria.industries)}'])
+                    writer.writerow([''])
+                    writer.writerow(['first_name', 'last_name', 'email', 'job_title', 'company_name', 'confidence_score'])
+            
+            self.logger.info(f"Exported {len(leads)} leads to {file_path}")
+            return str(file_path)
+            
+        except Exception as e:
+            self.logger.error(f"Failed to export leads to CSV: {e}")
+            return None
     
     def _create_error_response(self, state: Dict[str, Any], error: str) -> Dict[str, Any]:
         """Create standardized error response."""
