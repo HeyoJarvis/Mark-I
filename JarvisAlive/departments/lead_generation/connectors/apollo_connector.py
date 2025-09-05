@@ -60,7 +60,6 @@ class ApolloConnector:
     def _build_search_params(self, criteria: ICPCriteria, max_leads: int) -> Dict[str, Any]:
         """Build Apollo API search parameters from ICP criteria."""
         params = {
-            "api_key": self.api_key,
             "page": 1,
             "per_page": min(max_leads, 50),  # Apollo limit
         }
@@ -98,9 +97,11 @@ class ApolloConnector:
     async def _fetch_page(self, session: aiohttp.ClientSession, params: Dict[str, Any]) -> List[Lead]:
         """Fetch a single page of results from Apollo API."""
         try:
+            headers = {"X-Api-Key": self.api_key}  # Apollo requires API key in header
             async with session.get(
                 f"{self.base_url}/mixed_people/search",
                 params=params,
+                headers=headers,
                 timeout=aiohttp.ClientTimeout(total=30)
             ) as response:
                 if response.status == 200:
@@ -218,10 +219,10 @@ class ApolloConnector:
         
         try:
             async with aiohttp.ClientSession() as session:
-                params = {"api_key": self.api_key}
+                headers = {"X-Api-Key": self.api_key}
                 async with session.get(
                     f"{self.base_url}/auth/verify",
-                    params=params,
+                    headers=headers,
                     timeout=aiohttp.ClientTimeout(total=10)
                 ) as response:
                     return response.status == 200
