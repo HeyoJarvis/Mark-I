@@ -40,8 +40,10 @@ from ai_engines.base_engine import AIEngineConfig
 
 # Import real agent classes for direct execution
 from departments.branding.branding_agent import BrandingAgent
+from departments.branding.logo_generation_agent import LogoGenerationAgent
 from departments.website.website_generator_agent import WebsiteGeneratorAgent
 from departments.market_research.market_research_agent import MarketResearchAgent
+from departments.lead_generation.lead_mining_agent import LeadMiningAgent
 
 logger = logging.getLogger(__name__)
 
@@ -467,6 +469,18 @@ class SemanticOrchestrator:
                     "requirements": ["pandas", "numpy"],
                     "agent_id": "data_analysis_agent"
                 }
+            },
+            CapabilityCategory.LEAD_GENERATION: {
+                "name": "Lead Mining Agent",
+                "description": "Finds and qualifies potential customers using Apollo and other sources",
+                "capabilities": ["lead_qualification", "data_processing", "api_integration"],
+                "triggers": [ManualTrigger(description="Mine leads on demand")],
+                "created_by": "semantic_orchestrator",
+                "config": {
+                    "agent_id": "lead_mining_agent",
+                    "use_real_agent": True,  # REAL AGENT AVAILABLE
+                    "requirements": ["apollo", "dns", "aiohttp"]
+                }
             }
         }
         
@@ -562,8 +576,10 @@ if __name__ == "__main__":
             # Map agent IDs to real agent classes
             agent_mapping = {
                 "branding_agent": BrandingAgent,
+                "logo_generation_agent": LogoGenerationAgent,
                 "website_generator_agent": WebsiteGeneratorAgent,
                 "market_research_agent": MarketResearchAgent,
+                "lead_mining_agent": LeadMiningAgent,
             }
             
             if agent_id not in agent_mapping:
@@ -628,6 +644,41 @@ if __name__ == "__main__":
                 "target_market": extracted_parameters.get("target_audience", ""),
                 "business_context": business_context,
                 "research_focus": extracted_parameters.get("research_focus", "comprehensive")
+            }
+        elif agent_id == "logo_generation_agent":
+            # Logo generation requires a logo_prompt, typically from BrandingAgent
+            logo_prompt = extracted_parameters.get("logo_prompt", "")
+            
+            # If no logo_prompt available, create a basic one from business_goal
+            if not logo_prompt:
+                # Extract business name and type for logo prompt
+                business_name = extracted_parameters.get("brand_name") or extracted_parameters.get("business_name", "")
+                business_type = extracted_parameters.get("business_type", "business")
+                
+                if business_name:
+                    logo_prompt = f"Design a professional logo for {business_name}, a {business_type}. {business_goal}"
+                else:
+                    logo_prompt = f"Design a professional logo for a {business_type}. {business_goal}"
+            
+            return {
+                "business_idea": business_goal,
+                "logo_prompt": logo_prompt,  # ✅ REQUIRED by LogoGenerationAgent
+                "brand_name": extracted_parameters.get("brand_name", business_goal.split()[-1] if business_goal else "Brand"),
+                "color_palette": extracted_parameters.get("color_palette", []),
+                "business_type": extracted_parameters.get("business_type", ""),
+                "style_preferences": user_preferences.get("style", ["modern", "professional"]),
+                "business_context": business_context,
+                "user_preferences": user_preferences
+            }
+        elif agent_id == "lead_mining_agent":
+            return {
+                "business_goal": business_goal,
+                "icp_criteria": extracted_parameters.get("icp_criteria", {}),
+                "max_leads": extracted_parameters.get("max_leads", 50),
+                "sources": extracted_parameters.get("sources", ["apollo"]),
+                "exclude_domains": extracted_parameters.get("exclude_domains", []),
+                "business_context": business_context,
+                "user_preferences": user_preferences
             }
         else:
             # Generic state for other agents

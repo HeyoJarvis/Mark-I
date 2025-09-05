@@ -138,6 +138,14 @@ class CapabilityAgentRegistry:
             execution_requirements={"web_access": True, "data_extraction": True}
         ))
         
+        # Lead Mining capabilities (new Apollo-powered agent)
+        self.register_capability(AgentCapability(
+            agent_id="lead_mining_agent",
+            capability_category=CapabilityCategory.LEAD_GENERATION,
+            specific_skills=["apollo_integration", "prospect_search", "icp_analysis", "lead_qualification"],
+            execution_requirements={"apollo_api": True, "data_validation": True, "ai_analysis": True}
+        ))
+        
         # Content creation capabilities
         self.register_capability(AgentCapability(
             agent_id="content_creator_agent",
@@ -431,6 +439,11 @@ in the execution_plan and suggest the closest available capabilities.
                     'design': CapabilityCategory.DESIGN_SERVICES,
                     'visual': CapabilityCategory.DESIGN_SERVICES,
                     'leads': CapabilityCategory.LEAD_GENERATION,
+                    'prospects': CapabilityCategory.LEAD_GENERATION,
+                    'prospecting': CapabilityCategory.LEAD_GENERATION,
+                    'lead generation': CapabilityCategory.LEAD_GENERATION,
+                    'lead mining': CapabilityCategory.LEAD_GENERATION,
+                    'find leads': CapabilityCategory.LEAD_GENERATION,
                     'data': CapabilityCategory.DATA_ANALYSIS,
                     'analysis': CapabilityCategory.DATA_ANALYSIS
                 }
