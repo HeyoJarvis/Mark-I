@@ -45,6 +45,7 @@ from departments.website.website_generator_agent import WebsiteGeneratorAgent
 from departments.market_research.market_research_agent import MarketResearchAgent
 from departments.lead_generation.lead_mining_agent import LeadMiningAgent
 from departments.social_intelligence.social_listening_agent import SocialListeningAgent
+from departments.content_marketing.content_marketing_agent import ContentMarketingAgent
 
 logger = logging.getLogger(__name__)
 
@@ -594,6 +595,7 @@ if __name__ == "__main__":
                 "market_research_agent": MarketResearchAgent,
                 "lead_mining_agent": LeadMiningAgent,
                 "social_listening_agent": SocialListeningAgent,
+                "content_marketing_agent": ContentMarketingAgent,
             }
             
             if agent_id not in agent_mapping:
@@ -704,6 +706,19 @@ if __name__ == "__main__":
                 "time_range_hours": extracted_parameters.get("time_range_hours", 24),
                 "monitoring_focus": extracted_parameters.get("monitoring_focus", "brand_monitoring"),
                 "business_context": business_context,
+                "user_preferences": user_preferences
+            }
+        elif agent_id == "content_marketing_agent":
+            return {
+                "content_goal": business_goal,
+                "business_context": business_context,
+                "operation_type": extracted_parameters.get("operation_type", "gap_analysis"),
+                "target_keywords": extracted_parameters.get("target_keywords", []),
+                "content_preferences": extracted_parameters.get("content_preferences", {
+                    "content_types": ["blog_post", "article"],
+                    "posting_frequency": "weekly",
+                    "content_length": "long_form"
+                }),
                 "user_preferences": user_preferences
             }
         else:

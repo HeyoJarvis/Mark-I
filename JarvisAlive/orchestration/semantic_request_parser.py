@@ -187,6 +187,14 @@ class CapabilityAgentRegistry:
             execution_requirements={"social_apis": True, "web_scraping": True, "ai_analysis": True}
         ))
         
+        # Content marketing capabilities
+        self.register_capability(AgentCapability(
+            agent_id="content_marketing_agent",
+            capability_category=CapabilityCategory.CONTENT_CREATION,
+            specific_skills=["content_gap_analysis", "seo_optimization", "content_calendar", "content_distribution"],
+            execution_requirements={"cms_apis": True, "seo_tools": True, "ai_analysis": True}
+        ))
+        
         # General agent for fallback
         self.register_capability(AgentCapability(
             agent_id="general_agent",
