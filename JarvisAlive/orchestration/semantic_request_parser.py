@@ -43,6 +43,7 @@ class CapabilityCategory(str, Enum):
     DATA_ANALYSIS = "data_analysis"
     DESIGN_SERVICES = "design_services"
     TECHNICAL_IMPLEMENTATION = "technical_implementation"
+    SOCIAL_MONITORING = "social_monitoring"
 
 
 @dataclass
@@ -176,6 +177,14 @@ class CapabilityAgentRegistry:
             capability_category=CapabilityCategory.DATA_ANALYSIS,
             specific_skills=["data_processing", "statistical_analysis", "reporting"],
             execution_requirements={"data_tools": True, "api_access": "claude"}
+        ))
+        
+        # Social monitoring capabilities
+        self.register_capability(AgentCapability(
+            agent_id="social_listening_agent",
+            capability_category=CapabilityCategory.SOCIAL_MONITORING,
+            specific_skills=["brand_monitoring", "competitor_tracking", "sentiment_analysis", "engagement_detection"],
+            execution_requirements={"social_apis": True, "web_scraping": True, "ai_analysis": True}
         ))
         
         # General agent for fallback
@@ -445,7 +454,13 @@ in the execution_plan and suggest the closest available capabilities.
                     'lead mining': CapabilityCategory.LEAD_GENERATION,
                     'find leads': CapabilityCategory.LEAD_GENERATION,
                     'data': CapabilityCategory.DATA_ANALYSIS,
-                    'analysis': CapabilityCategory.DATA_ANALYSIS
+                    'analysis': CapabilityCategory.DATA_ANALYSIS,
+                    'social': CapabilityCategory.SOCIAL_MONITORING,
+                    'monitoring': CapabilityCategory.SOCIAL_MONITORING,
+                    'mentions': CapabilityCategory.SOCIAL_MONITORING,
+                    'brand monitoring': CapabilityCategory.SOCIAL_MONITORING,
+                    'social listening': CapabilityCategory.SOCIAL_MONITORING,
+                    'competitor tracking': CapabilityCategory.SOCIAL_MONITORING
                 }
                 
                 cap_lower = cap.lower().strip()

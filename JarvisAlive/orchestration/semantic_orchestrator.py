@@ -44,6 +44,7 @@ from departments.branding.logo_generation_agent import LogoGenerationAgent
 from departments.website.website_generator_agent import WebsiteGeneratorAgent
 from departments.market_research.market_research_agent import MarketResearchAgent
 from departments.lead_generation.lead_mining_agent import LeadMiningAgent
+from departments.social_intelligence.social_listening_agent import SocialListeningAgent
 
 logger = logging.getLogger(__name__)
 
@@ -481,6 +482,18 @@ class SemanticOrchestrator:
                     "use_real_agent": True,  # REAL AGENT AVAILABLE
                     "requirements": ["apollo", "dns", "aiohttp"]
                 }
+            },
+            CapabilityCategory.SOCIAL_MONITORING: {
+                "name": "Social Listening Agent",
+                "description": "Monitors social media for brand mentions, competitor discussions, and engagement opportunities",
+                "capabilities": ["social_monitoring", "sentiment_analysis", "alert_generation"],
+                "triggers": [ManualTrigger(description="Monitor social media on demand")],
+                "created_by": "semantic_orchestrator",
+                "config": {
+                    "agent_id": "social_listening_agent",
+                    "use_real_agent": True,  # REAL AGENT AVAILABLE
+                    "requirements": ["praw", "aiohttp", "beautifulsoup4"]
+                }
             }
         }
         
@@ -580,6 +593,7 @@ if __name__ == "__main__":
                 "website_generator_agent": WebsiteGeneratorAgent,
                 "market_research_agent": MarketResearchAgent,
                 "lead_mining_agent": LeadMiningAgent,
+                "social_listening_agent": SocialListeningAgent,
             }
             
             if agent_id not in agent_mapping:
@@ -677,6 +691,18 @@ if __name__ == "__main__":
                 "max_leads": extracted_parameters.get("max_leads", 50),
                 "sources": extracted_parameters.get("sources", ["apollo"]),
                 "exclude_domains": extracted_parameters.get("exclude_domains", []),
+                "business_context": business_context,
+                "user_preferences": user_preferences
+            }
+        elif agent_id == "social_listening_agent":
+            return {
+                "monitoring_goal": business_goal,
+                "keywords": extracted_parameters.get("keywords", []),
+                "competitor_keywords": extracted_parameters.get("competitor_keywords", []),
+                "sources": extracted_parameters.get("sources", ["reddit", "google_alerts", "hackernews"]),
+                "max_mentions": extracted_parameters.get("max_mentions", 100),
+                "time_range_hours": extracted_parameters.get("time_range_hours", 24),
+                "monitoring_focus": extracted_parameters.get("monitoring_focus", "brand_monitoring"),
                 "business_context": business_context,
                 "user_preferences": user_preferences
             }
