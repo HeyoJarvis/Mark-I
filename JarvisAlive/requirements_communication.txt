@@ -1,0 +1,54 @@
+# Communication System Requirements
+# Core dependencies for Gmail, WhatsApp, LinkedIn monitoring and email orchestration
+
+# Gmail API
+google-api-python-client>=2.100.0
+google-auth-httplib2>=0.1.1
+google-auth-oauthlib>=1.0.0
+google-auth>=2.22.0
+
+# HTTP requests for WhatsApp and LinkedIn APIs
+requests>=2.31.0
+aiohttp>=3.8.5
+
+# Web scraping for LinkedIn (use with caution)
+selenium>=4.11.0
+beautifulsoup4>=4.12.2
+lxml>=4.9.3
+
+# Data validation and models
+pydantic>=2.3.0
+
+# Async support
+asyncio-mqtt>=0.13.0
+
+# Redis for message bus
+redis>=4.6.0
+aioredis>=2.0.1
+
+# Email handling
+email-validator>=2.0.0
+
+# Date/time handling
+python-dateutil>=2.8.2
+
+# Logging and monitoring
+structlog>=23.1.0
+
+# Optional: Rate limiting
+ratelimit>=2.2.1
+
+# Optional: Database support (if you want to persist data)
+sqlalchemy>=2.0.20
+alembic>=1.11.3
+
+# Optional: Encryption for sensitive data
+cryptography>=41.0.4
+
+# FastAPI for webhook endpoints
+fastapi>=0.103.0
+uvicorn>=0.23.2
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.1 

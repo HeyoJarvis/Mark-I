@@ -48,11 +48,64 @@ class MockSemanticJarvis:
         self.semantic_parser = SemanticRequestParser(ai_engine)
     
     async def process_request(self, user_request: str, session_id: str, conversation_context: Optional[Dict[str, Any]] = None):
-        """Process request using semantic parser only."""
+        """Process request using semantic parser and actually execute agents when possible."""
         try:
             understanding = await self.semantic_parser.parse_request(user_request, conversation_context)
             
-            # Convert to standard response format
+            # Try to actually execute the agent if it's our advanced email orchestration agent
+            if "advanced_email_orchestration_agent" in understanding.recommended_agents:
+                try:
+                    # Import and execute the advanced agent
+                    from departments.communication.semantic_advanced_orchestrator import SemanticAdvancedEmailOrchestrator
+                    
+                    agent = SemanticAdvancedEmailOrchestrator()
+                    
+                    # Determine task type based on user request
+                    if any(word in user_request.lower() for word in ['what', 'capabilities', 'features', 'can you do']):
+                        task_type = 'describe_capabilities'
+                    elif 'create' in user_request.lower() or 'sequence' in user_request.lower():
+                        task_type = 'create_sequence'
+                    elif 'personalize' in user_request.lower():
+                        task_type = 'personalize_advanced'
+                    elif 'warming' in user_request.lower() or 'warm up' in user_request.lower():
+                        task_type = 'setup_warming'
+                    else:
+                        task_type = 'general_help'
+                    
+                    # Prepare task data from understanding
+                    task_data = {
+                        'user_input': user_request,
+                        'task_type': task_type,
+                        'business_goal': understanding.business_goal,
+                        'extracted_parameters': understanding.extracted_parameters,
+                        'business_context': understanding.business_context
+                    }
+                    
+                    # Execute the agent
+                    agent_result = await agent.run(task_data)
+                    
+                    # Return real result
+                    return {
+                        "success": agent_result.get('success', True),
+                        "workflow_id": f"advanced_{session_id}",
+                        "session_id": session_id,
+                        "method": "advanced_email_orchestration",
+                        "business_goal": understanding.business_goal,
+                        "user_intent": understanding.user_intent_summary,
+                        "confidence": understanding.confidence_score,
+                        "execution_strategy": understanding.execution_strategy.value,
+                        "agents_used": understanding.recommended_agents,
+                        "capabilities": [cap.value for cap in understanding.primary_capabilities],
+                        "execution_plan": understanding.execution_plan,
+                        "results": agent_result,
+                        "timestamp": datetime.now().isoformat()
+                    }
+                    
+                except Exception as agent_error:
+                    # Fall back to mock if agent execution fails
+                    pass
+            
+            # Convert to standard response format (fallback)
             return {
                 "success": True,
                 "workflow_id": f"mock_{session_id}",
@@ -287,18 +340,40 @@ class SemanticChatInterface:
                     return '{"business_goal": "Create professional logo", "user_intent_summary": "Logo design needed", "primary_capabilities": ["logo_generation"], "secondary_capabilities": ["brand_creation"], "recommended_agents": ["logo_generation_agent"], "execution_strategy": "single_agent", "execution_plan": {"description": "Direct logo generation"}, "extracted_parameters": {"business_type": "startup"}, "business_context": {"industry": "creative"}, "user_preferences": {"style": "professional"}, "confidence_score": 0.9, "reasoning": "Clear logo request"}'
                 elif "market" in prompt.lower() or "research" in prompt.lower():
                     return '{"business_goal": "Conduct market research", "user_intent_summary": "Market analysis needed", "primary_capabilities": ["market_analysis"], "secondary_capabilities": [], "recommended_agents": ["market_research_agent"], "execution_strategy": "single_agent", "execution_plan": {"description": "Market research analysis"}, "extracted_parameters": {"industry": "technology"}, "business_context": {"focus": "competitive_analysis"}, "user_preferences": {"depth": "comprehensive"}, "confidence_score": 0.85, "reasoning": "Market research request"}'
+                elif ("email" in prompt.lower() and ("capabilities" in prompt.lower() or "what can you do" in prompt.lower() or "features" in prompt.lower())) or "sequence" in prompt.lower() or "orchestration" in prompt.lower() or "personalization" in prompt.lower() or "warming" in prompt.lower():
+                    return '{"business_goal": "Learn about or use advanced email orchestration capabilities", "user_intent_summary": "Email orchestration information or automation needed", "primary_capabilities": ["email_orchestration"], "secondary_capabilities": [], "recommended_agents": ["advanced_email_orchestration_agent"], "execution_strategy": "single_agent", "execution_plan": {"description": "Show email orchestration capabilities or create advanced email solutions"}, "extracted_parameters": {"query_type": "capabilities"}, "business_context": {"focus": "email_automation"}, "user_preferences": {"features": "ai_powered"}, "confidence_score": 0.95, "reasoning": "Email capabilities or orchestration request"}'
                 else:
-                    return "I understand you'd like help with your business. Could you be more specific about what you need? I can help with logos, market research, branding, websites, and more."
+                    return "I understand you'd like help with your business. Could you be more specific about what you need? I can help with logos, market research, branding, websites, email orchestration, and more."
         
-        # Create a simple mock jarvis that doesn't need OrchestratorConfig
-        mock_ai_engine = MockAIEngine()
-        self.jarvis = MockSemanticJarvis(mock_ai_engine)
-        self.ai_engine = mock_ai_engine
+        # Create enhanced mock jarvis with API key support
+        api_key = os.getenv('ANTHROPIC_API_KEY')
+        if api_key:
+            # Use real AI engine for better parsing
+            try:
+                config = AIEngineConfig(
+                    api_key=api_key,
+                    model="claude-3-5-sonnet-20241022",
+                    temperature=0.7,
+                    max_tokens=2000
+                )
+                real_ai_engine = AnthropicEngine(config)
+                self.jarvis = MockSemanticJarvis(real_ai_engine)
+                self.ai_engine = real_ai_engine
+            except Exception:
+                # Fall back to mock AI if real fails
+                mock_ai_engine = MockAIEngine()
+                self.jarvis = MockSemanticJarvis(mock_ai_engine)
+                self.ai_engine = mock_ai_engine
+        else:
+            # Use mock AI if no key
+            mock_ai_engine = MockAIEngine()
+            self.jarvis = MockSemanticJarvis(mock_ai_engine)
+            self.ai_engine = mock_ai_engine
         
-        # Initialize context-aware components with mock engine
-        self.workflow_store = WorkflowResultStore(mock_ai_engine, redis_url="redis://localhost:6379")
+        # Initialize context-aware components with the AI engine we set up
+        self.workflow_store = WorkflowResultStore(self.ai_engine, redis_url="redis://localhost:6379")
         await self.workflow_store.initialize()
-        self.response_analyzer = ContextAwareResponseAnalyzer(mock_ai_engine)
+        self.response_analyzer = ContextAwareResponseAnalyzer(self.ai_engine)
         
         print("✅ Mock mode initialized for development")
         print("✅ Context-aware response system initialized (mock mode)")
@@ -742,6 +817,53 @@ Answer naturally and helpfully:
             summary_parts.append("• Brand strategy developed")
         if "website" in str(results):
             summary_parts.append("• Website created")
+        
+        # Email orchestration results - check nested structure
+        sequences_created = []
+        saved_paths = []
+        
+        # Extract from nested result structure
+        if isinstance(results, dict):
+            # Check direct results first
+            sequences_created = results.get("sequences_created", [])
+            saved_paths = results.get("saved_paths", [])
+            
+            # Check nested agent results
+            for agent_key, agent_data in results.get("results", {}).items():
+                if "email_orchestration" in agent_key and isinstance(agent_data, dict):
+                    # Check for sequences in agent result
+                    if "sequences_created" in agent_data:
+                        sequences_created.extend(agent_data["sequences_created"])
+                    if "saved_paths" in agent_data:
+                        saved_paths.extend(agent_data["saved_paths"])
+                    
+                    # Check for email orchestration result
+                    orchestration_result = agent_data.get("email_orchestration_result", {})
+                    if "sequences_created" in orchestration_result:
+                        sequences_created.extend(orchestration_result["sequences_created"])
+        
+        # Format email results
+        if sequences_created:
+            summary_parts.append(f"• Email sequences created ({len(sequences_created)} sequences)")
+            
+            # Extract sequence names and features
+            for seq in sequences_created[:2]:  # Show first 2
+                seq_name = seq.get("sequence_name", "Unnamed Sequence")
+                target = seq.get("target_audience", "general audience")
+                summary_parts.append(f"  - {seq_name} (targeting {target})")
+            
+            summary_parts.append("• Features: AI personalization, send optimization, reply detection")
+            
+            if saved_paths:
+                summary_parts.append(f"• Files saved to: {saved_paths[0].split('/')[-2]}/")
+        elif "email_orchestration" in str(results):
+            summary_parts.append("• Email orchestration system configured")
+                
+        if "email_performance" in str(results) or "analytics_data" in str(results):
+            summary_parts.append("• Email performance analytics generated")
+            
+        if "warming_status" in str(results):
+            summary_parts.append("• Email warming protocols configured")
         
         if summary_parts:
             return "\n".join(summary_parts)

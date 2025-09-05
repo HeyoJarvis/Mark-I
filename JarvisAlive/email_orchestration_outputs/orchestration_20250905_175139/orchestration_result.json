@@ -1,0 +1,22 @@
+{
+  "sequences_created": [
+    {
+      "sequence_id": "f1d85337-364d-47c5-82ff-7f5c7ed3be94",
+      "sequence_name": "AI-Powered Sequence",
+      "target_audience": "executives",
+      "features_enabled": {
+        "ai_personalization": true,
+        "send_optimization": "optimal_time",
+        "reply_detection": true,
+        "bounce_handling": true
+      }
+    }
+  ],
+  "contacts_processed": 0,
+  "capabilities_info": {},
+  "analytics_data": {},
+  "warming_status": {},
+  "total_sequences": 1,
+  "success_rate": 1.0,
+  "operation_completed_at": "2025-09-05T17:51:39.371112"
+}

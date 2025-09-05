@@ -1,0 +1,22 @@
+{
+  "sequences_created": [
+    {
+      "sequence_id": "b3caa129-446e-4a5e-bc52-b2ab1f146b52",
+      "sequence_name": "Tech Executive Outreach",
+      "target_audience": "tech_executives",
+      "features_enabled": {
+        "ai_personalization": true,
+        "send_optimization": "optimal_time",
+        "reply_detection": true,
+        "bounce_handling": true
+      }
+    }
+  ],
+  "contacts_processed": 0,
+  "capabilities_info": {},
+  "analytics_data": {},
+  "warming_status": {},
+  "total_sequences": 1,
+  "success_rate": 1.0,
+  "operation_completed_at": "2025-09-05T06:55:07.184224"
+}

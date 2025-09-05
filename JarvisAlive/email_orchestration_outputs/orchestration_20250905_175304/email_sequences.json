@@ -1,0 +1,13 @@
+[
+  {
+    "sequence_id": "e72f0de0-ce34-4b4c-985c-50898ecb19db",
+    "sequence_name": "Tech Executive Outreach",
+    "target_audience": "tech_executives",
+    "features_enabled": {
+      "ai_personalization": true,
+      "send_optimization": "optimal_time",
+      "reply_detection": true,
+      "bounce_handling": true
+    }
+  }
+]

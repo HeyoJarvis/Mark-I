@@ -1,0 +1,13 @@
+[
+  {
+    "sequence_id": "e3811e4b-60db-41e8-8c59-27e3a86a61bd",
+    "sequence_name": "AI-Powered Sequence",
+    "target_audience": "executives",
+    "features_enabled": {
+      "ai_personalization": true,
+      "send_optimization": "optimal_time",
+      "reply_detection": true,
+      "bounce_handling": true
+    }
+  }
+]

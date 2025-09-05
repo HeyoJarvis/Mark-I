@@ -349,6 +349,26 @@ class PersistentSystem:
             priority=1
         )
         
+        # Register Advanced Email Orchestration Agent
+        try:
+            from departments.communication.semantic_advanced_orchestrator import SemanticAdvancedEmailOrchestrator
+            self.agent_pool.register_agent(
+                agent_id="advanced_email_orchestration_agent",
+                agent_class=SemanticAdvancedEmailOrchestrator,
+                config=agent_config,
+                supported_tasks=[
+                    "advanced_email_sequences", "ai_personalization", "send_time_optimization",
+                    "reply_detection", "bounce_handling", "email_warming", "comprehensive_analytics",
+                    "ab_testing", "reputation_management", "compliance_automation", "enterprise_features",
+                    "create_sequence", "personalize_advanced", "optimize_timing", "setup_warming", "analytics"
+                ],
+                max_instances=self.config.max_agents_per_type,
+                auto_restart=self.config.agent_restart_enabled,
+                priority=1
+            )
+        except ImportError as e:
+            self.logger.warning(f"Advanced Email Orchestration Agent not available: {e}")
+        
         # Register PersistentLogoGenerationAgent
         self.agent_pool.register_agent(
             agent_id="logo_generation_agent",

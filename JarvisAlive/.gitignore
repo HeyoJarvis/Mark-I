@@ -184,3 +184,6 @@ local_settings.py
 .local/ 
 .env
 website_outputs/
+
+#secrets
+gmail_*.json

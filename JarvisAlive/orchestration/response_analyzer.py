@@ -104,10 +104,10 @@ Determine the appropriate response type based on the message and available conte
    - Use when: Context contains relevant information OR general knowledge can answer
    - Key indicators: Questions about past work, informational queries, "what", "how", "why" questions
 
-2. AGENT_EXECUTION: User wants to create, build, generate something new
-   - Examples: "Create a website", "Design a logo", "Research the market for electric cars"
-   - Use when: Clear action request for new deliverables
-   - Key indicators: "create", "build", "design", "generate", "make", "develop"
+2. AGENT_EXECUTION: User wants to create, build, generate something new OR requests business actions
+   - Examples: "Create a website", "Design a logo", "Research the market for electric cars", "Monitor my emails", "Set up email sequences"
+   - Use when: Clear action request for new deliverables OR business service requests
+   - Key indicators: "create", "build", "design", "generate", "make", "develop", "monitor", "set up", "analyze", "research"
 
 3. CLARIFICATION: Request is ambiguous or missing critical information
    - Use when: Cannot determine intent clearly
@@ -122,6 +122,7 @@ CRITICAL DECISION RULES:
 - If user asks "what", "how", "why" questions about existing work, use DIRECT_ANSWER
 - If user asks "what", "how", "why" questions about general topics, use DIRECT_ANSWER  
 - If user says "create", "build", "make", "design", "generate", use AGENT_EXECUTION
+- If user requests business actions like "monitor", "set up", "analyze", "research", use AGENT_EXECUTION
 - Consider conversation history - if they just completed work, questions are likely about that work
 
 Respond ONLY with valid JSON (no markdown, no extra text):

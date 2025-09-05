@@ -494,6 +494,18 @@ class SemanticOrchestrator:
                     "use_real_agent": True,  # REAL AGENT AVAILABLE
                     "requirements": ["praw", "aiohttp", "beautifulsoup4"]
                 }
+            },
+            CapabilityCategory.EMAIL_ORCHESTRATION: {
+                "name": "Advanced Email Orchestration Agent",
+                "description": "Creates AI-powered email sequences with personalization, send optimization, warming, and analytics",
+                "capabilities": ["email_sending", "personalization", "analytics_computation", "workflow_automation"],
+                "triggers": [ManualTrigger(description="Create email orchestration on demand")],
+                "created_by": "semantic_orchestrator",
+                "config": {
+                    "agent_id": "advanced_email_orchestration_agent",
+                    "use_real_agent": True,  # REAL AGENT AVAILABLE
+                    "requirements": ["anthropic", "google-api-python-client", "pydantic"]
+                }
             }
         }
         
@@ -595,6 +607,13 @@ if __name__ == "__main__":
                 "lead_mining_agent": LeadMiningAgent,
                 "social_listening_agent": SocialListeningAgent,
             }
+            
+            # Add email orchestration agent (traditional interface)
+            try:
+                from departments.communication.traditional_email_orchestration_agent import EmailOrchestrationAgent
+                agent_mapping["advanced_email_orchestration_agent"] = EmailOrchestrationAgent
+            except ImportError:
+                logger.warning("Email Orchestration Agent not available")
             
             if agent_id not in agent_mapping:
                 logger.info(f"No real agent available for {agent_id}, will use fallback")
@@ -704,6 +723,28 @@ if __name__ == "__main__":
                 "time_range_hours": extracted_parameters.get("time_range_hours", 24),
                 "monitoring_focus": extracted_parameters.get("monitoring_focus", "brand_monitoring"),
                 "business_context": business_context,
+                "user_preferences": user_preferences
+            }
+        elif agent_id == "advanced_email_orchestration_agent":
+            # Determine task type from context and parameters
+            task_type = "create_sequence"  # default
+            if "capabilities" in context.get("original_request", "").lower():
+                task_type = "describe_capabilities"
+            elif "personalize" in context.get("original_request", "").lower():
+                task_type = "personalize_advanced"
+            elif "warming" in context.get("original_request", "").lower():
+                task_type = "setup_warming"
+            elif "analytics" in context.get("original_request", "").lower():
+                task_type = "analytics"
+            
+            return {
+                "user_input": context.get("original_request", business_goal),
+                "task_type": task_type,
+                "business_goal": business_goal,
+                "extracted_parameters": extracted_parameters,
+                "business_context": business_context,
+                "target_audience": extracted_parameters.get("target_audience", "executives"),
+                "industry": extracted_parameters.get("industry", "technology"),
                 "user_preferences": user_preferences
             }
         else:

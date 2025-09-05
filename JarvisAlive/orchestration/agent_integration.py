@@ -203,6 +203,79 @@ class AgentRegistry:
             }
         )
         
+        # Register Communication Monitoring Agent
+        self.register_agent(
+            agent_id="communication_monitoring_agent",
+            agent_class=None,  # Will be imported dynamically
+            metadata={
+                "name": "Communication Monitoring Agent",
+                "description": "Always-on agent that monitors Gmail, WhatsApp, and LinkedIn for incoming messages",
+                "capabilities": ["gmail_monitoring", "whatsapp_monitoring", "linkedin_monitoring", "ai_classification", "message_filtering"],
+                "input_schema": {
+                    "monitoring_config": "object with channel settings",
+                    "ai_classification": "boolean (optional)"
+                },
+                "output_schema": {
+                    "events": "array of communication events",
+                    "metrics": "monitoring metrics object",
+                    "classifications": "array of AI classifications"
+                },
+                "category": "communication",
+                "type": "persistent",
+                "coordination": ["publishes_to_message_bus", "triggers_email_orchestration", "ai_powered"]
+            }
+        )
+        
+
+        
+        # Register Advanced Email Orchestration Agent
+        try:
+            from departments.communication.semantic_advanced_orchestrator import SemanticAdvancedEmailOrchestrator
+            advanced_orchestrator_class = SemanticAdvancedEmailOrchestrator
+        except ImportError:
+            advanced_orchestrator_class = None
+        
+        self.register_agent(
+            agent_id="advanced_email_orchestration_agent",
+            agent_class=advanced_orchestrator_class,
+            metadata={
+                "name": "Advanced Email Orchestration Agent",
+                "description": "Enterprise-grade email orchestration with AI personalization, send optimization, and warming",
+                "capabilities": [
+                    "advanced_email_sequences", "ai_personalization", "send_time_optimization", 
+                    "reply_detection", "bounce_handling", "email_warming", "comprehensive_analytics",
+                    "ab_testing", "reputation_management", "compliance_automation"
+                ],
+                "input_schema": {
+                    "task_type": "string (create_sequence, personalize_advanced, optimize_timing, setup_warming, analytics)",
+                    "sequence_data": "object with sequence configuration",
+                    "contact_data": "object with contact information", 
+                    "template_data": "object with template information",
+                    "optimization_config": "object with optimization settings",
+                    "warming_config": "object with warming parameters"
+                },
+                "output_schema": {
+                    "success": "boolean",
+                    "message": "string",
+                    "result": "object with advanced results",
+                    "analytics": "object with performance metrics",
+                    "optimization_insights": "object with AI insights"
+                },
+                "category": "communication",
+                "type": "advanced_orchestration",
+                "coordination": ["ai_powered", "gmail_integration", "claude_integration", "enterprise_features"],
+                "enterprise_features": [
+                    "AI-powered personalization with Claude",
+                    "Send time optimization algorithms", 
+                    "Intelligent reply detection and classification",
+                    "Automated bounce and unsubscribe management",
+                    "Email account warming with reputation monitoring",
+                    "Comprehensive analytics and A/B testing",
+                    "GDPR and CAN-SPAM compliance automation"
+                ]
+            }
+        )
+        
         # Add more agents here as they become available
         # self.register_agent("sales_agent", SalesAgent, {...})
         # self.register_agent("marketing_agent", MarketingAgent, {...})

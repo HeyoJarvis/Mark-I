@@ -44,6 +44,8 @@ class CapabilityCategory(str, Enum):
     DESIGN_SERVICES = "design_services"
     TECHNICAL_IMPLEMENTATION = "technical_implementation"
     SOCIAL_MONITORING = "social_monitoring"
+    COMMUNICATION_MONITORING = "communication_monitoring"
+    EMAIL_ORCHESTRATION = "email_orchestration"
 
 
 @dataclass
@@ -187,6 +189,33 @@ class CapabilityAgentRegistry:
             execution_requirements={"social_apis": True, "web_scraping": True, "ai_analysis": True}
         ))
         
+        # Communication Monitoring capabilities
+        self.register_capability(AgentCapability(
+            agent_id="communication_monitoring_agent",
+            capability_category=CapabilityCategory.COMMUNICATION_MONITORING,
+            specific_skills=["gmail_monitoring", "whatsapp_monitoring", "linkedin_monitoring", "ai_classification", "message_filtering"],
+            execution_requirements={"gmail_api": True, "whatsapp_api": True, "linkedin_access": True, "ai_analysis": True},
+            estimated_duration=0  # Always-on agent
+        ))
+        
+        # Advanced Email Orchestration capabilities (replaces basic email orchestration)
+        self.register_capability(AgentCapability(
+            agent_id="advanced_email_orchestration_agent",
+            capability_category=CapabilityCategory.EMAIL_ORCHESTRATION,
+            specific_skills=[
+                "advanced_email_sequences", "ai_personalization", "send_time_optimization",
+                "reply_detection", "bounce_handling", "email_warming", "comprehensive_analytics",
+                "ab_testing", "reputation_management", "compliance_automation", "enterprise_features",
+                # Include basic capabilities for backward compatibility
+                "email_sequences", "campaign_management", "personalization", "reply_handling", "follow_up_automation"
+            ],
+            execution_requirements={
+                "gmail_api": True, "claude_ai": True, "advanced_analytics": True,
+                "reputation_monitoring": True, "compliance_tools": True
+            },
+            estimated_duration=120
+        ))
+        
         # General agent for fallback
         self.register_capability(AgentCapability(
             agent_id="general_agent",
@@ -319,7 +348,10 @@ class SemanticRequestParser:
             CapabilityCategory.CONTENT_CREATION: "Writing marketing copy, blog posts, social content",
             CapabilityCategory.DATA_ANALYSIS: "Analyzing data and creating insights",
             CapabilityCategory.DESIGN_SERVICES: "Visual design and creative services",
-            CapabilityCategory.TECHNICAL_IMPLEMENTATION: "Technical development and implementation"
+            CapabilityCategory.TECHNICAL_IMPLEMENTATION: "Technical development and implementation",
+            CapabilityCategory.SOCIAL_MONITORING: "Social media monitoring and sentiment analysis",
+            CapabilityCategory.COMMUNICATION_MONITORING: "Email, WhatsApp, LinkedIn message monitoring and filtering",
+            CapabilityCategory.EMAIL_ORCHESTRATION: "Advanced email sequences, AI personalization, send optimization, reply detection, bounce handling, email warming, and comprehensive analytics"
         }
         
         context_str = ""
