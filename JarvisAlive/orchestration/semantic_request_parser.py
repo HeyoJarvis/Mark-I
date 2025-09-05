@@ -130,20 +130,20 @@ class CapabilityAgentRegistry:
             dependencies=[]  # Can work independently - will use fallback branding if needed
         ))
         
-        # Sales capabilities
-        self.register_capability(AgentCapability(
-            agent_id="lead_scanner_agent",
-            capability_category=CapabilityCategory.LEAD_GENERATION,
-            specific_skills=["prospect_identification", "contact_discovery", "lead_qualification"],
-            execution_requirements={"web_access": True, "data_extraction": True}
-        ))
-        
-        # Lead Mining capabilities (new Apollo-powered agent)
+        # Lead Mining capabilities (NEW Apollo-powered agent - PRIORITY)
         self.register_capability(AgentCapability(
             agent_id="lead_mining_agent",
             capability_category=CapabilityCategory.LEAD_GENERATION,
             specific_skills=["apollo_integration", "prospect_search", "icp_analysis", "lead_qualification"],
             execution_requirements={"apollo_api": True, "data_validation": True, "ai_analysis": True}
+        ))
+        
+        # Sales capabilities (legacy lead scanner - fallback)
+        self.register_capability(AgentCapability(
+            agent_id="lead_scanner_agent",
+            capability_category=CapabilityCategory.LEAD_GENERATION,
+            specific_skills=["prospect_identification", "contact_discovery", "lead_qualification"],
+            execution_requirements={"web_access": True, "data_extraction": True}
         ))
         
         # Content creation capabilities
